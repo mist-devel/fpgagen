@@ -797,44 +797,42 @@ begin
 	
 		if SEL = '0' then
 			FF_DTACK_N <= '1';
-		elsif SEL = '1' and FF_DTACK_N = '1' then			
+		elsif SEL = '1' and FF_DTACK_N = '1' then
 			if RNW = '0' then -- Write
 				if A(3 downto 2) = "00" then
 					-- Data Port
 					PENDING <= '0';
 
-					if CODE = "000011" -- CRAM Write
-					or CODE = "000101" -- VSRAM Write
-					or CODE = "000001" -- VRAM Write
-					then
-						DT_FF_DATA <= DI;
-						DT_FF_CODE <= CODE(2 downto 0);
-						if UDS_N = '0' and LDS_N = '0' then
-							DT_FF_SIZE <= '1';
-						else
-							DT_FF_SIZE <= '0';
-						end if;
-
-						if DT_FF_DTACK_N = '1' then
-							DT_FF_SEL <= '1';
-						else
-							DT_FF_SEL <= '0';
-							FF_DTACK_N <= '0';	
-						end if;
-					else
+					if DMA_FILL_PRE = '1' then
 						DT_DMAF_DATA <= DI;
-						if DMA_FILL_PRE = '1' then
-							if DMAF_SET_ACK = '0' then							
-								DMAF_SET_REQ <= '1';
-							else
-								DMAF_SET_REQ <= '0';
-								FF_DTACK_N <= '0';
-							end if;
+						if DMAF_SET_ACK = '0' then
+							DMAF_SET_REQ <= '1';
 						else
+							DMAF_SET_REQ <= '0';
 							FF_DTACK_N <= '0';
 						end if;
+					elsif CODE(3 downto 0) = "0011" -- CRAM Write
+						or CODE(3 downto 0) = "0101" -- VSRAM Write
+						or CODE(3 downto 0) = "0001" -- VRAM Write
+						then
+							DT_FF_DATA <= DI;
+							DT_FF_CODE <= CODE(2 downto 0);
+							if UDS_N = '0' and LDS_N = '0' then
+								DT_FF_SIZE <= '1';
+							else
+								DT_FF_SIZE <= '0';
+							end if;
+
+							if DT_FF_DTACK_N = '1' then
+								DT_FF_SEL <= '1';
+							else
+								DT_FF_SEL <= '0';
+								FF_DTACK_N <= '0';
+							end if;
+					else
+						FF_DTACK_N <= '0';
 					end if;
-					
+
 				elsif A(3 downto 2) = "01" then
 					-- Control Port
 					if PENDING = '1' then
@@ -842,7 +840,7 @@ begin
 						-- ADDR(15 downto 14) <= DI(1 downto 0);
 						-- ADDR_LATCH <= DI(1 downto 0);
 						ADDR_LATCH <= DI(1 downto 0) & ADDR(13 downto 0);
-						
+
 						-- In case of DMA VBUS request, hold the TG68 with DTACK_N
 						-- it should avoid the use of a CLKEN signal
 						if ADDR_SET_ACK = '0' or DMA_VBUS = '1' then							
