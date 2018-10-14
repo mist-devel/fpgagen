@@ -141,7 +141,7 @@ type fifo_addr_t is array(0 to 3) of std_logic_vector(15 downto 0);
 signal FIFO_ADDR	: fifo_addr_t;
 type fifo_data_t is array(0 to 3) of std_logic_vector(15 downto 0);
 signal FIFO_DATA	: fifo_data_t;
-type fifo_code_t is array(0 to 3) of std_logic_vector(2 downto 0);
+type fifo_code_t is array(0 to 3) of std_logic_vector(3 downto 0);
 signal FIFO_CODE	: fifo_code_t;
 signal FIFO_WR_POS	: std_logic_vector(1 downto 0);
 signal FIFO_RD_POS	: std_logic_vector(1 downto 0);
@@ -280,8 +280,7 @@ signal DT_WR_ADDR	: std_logic_vector(15 downto 0);
 signal DT_WR_DATA	: std_logic_vector(15 downto 0);
 
 signal DT_FF_DATA	: std_logic_vector(15 downto 0);
-signal DT_FF_CODE	: std_logic_vector(2 downto 0);
-signal DT_FF_SIZE	: std_logic;
+signal DT_FF_CODE	: std_logic_vector(3 downto 0);
 signal DT_FF_SEL	: std_logic;
 signal DT_FF_DTACK_N	: std_logic;
 signal DT_VBUS_SEL	: std_logic;
@@ -312,6 +311,7 @@ signal DMA_VBUS		: std_logic;
 signal DMA_FILL_PRE	: std_logic;
 signal DMA_FILL		: std_logic;
 signal DMA_COPY		: std_logic;
+signal DMA_FINISH	: std_logic;
 
 signal DMA_LENGTH	: std_logic_vector(15 downto 0);
 signal DMA_SOURCE	: std_logic_vector(15 downto 0);
@@ -794,7 +794,10 @@ begin
 	elsif rising_edge(CLK) then
 		SOVR_CLR <= '0';
 		SCOL_CLR <= '0';
-	
+		if DMA_FINISH = '1' then
+			CODE(5) <= '0';
+		end if;
+
 		if SEL = '0' then
 			FF_DTACK_N <= '1';
 		elsif SEL = '1' and FF_DTACK_N = '1' then			
@@ -802,18 +805,18 @@ begin
 				if A(3 downto 2) = "00" then
 					-- Data Port
 					PENDING <= '0';
-
-					if CODE = "000011" -- CRAM Write
-					or CODE = "000101" -- VSRAM Write
-					or CODE = "000001" -- VRAM Write
-					then
-						DT_FF_DATA <= DI;
-						DT_FF_CODE <= CODE(2 downto 0);
-						if UDS_N = '0' and LDS_N = '0' then
-							DT_FF_SIZE <= '1';
+					if DMA_FILL_PRE = '1' then
+						DT_DMAF_DATA <= DI;
+						if DMAF_SET_ACK = '0' then
+							DMAF_SET_REQ <= '1';
 						else
-							DT_FF_SIZE <= '0';
+							DMAF_SET_REQ <= '0';
+							FF_DTACK_N <= '0';
 						end if;
+
+					elsif CODE(0) = '1' then --write op
+						DT_FF_DATA <= DI;
+						DT_FF_CODE <= CODE(3 downto 0);
 
 						if DT_FF_DTACK_N = '1' then
 							DT_FF_SEL <= '1';
@@ -822,25 +825,16 @@ begin
 							FF_DTACK_N <= '0';	
 						end if;
 					else
-						DT_DMAF_DATA <= DI;
-						if DMA_FILL_PRE = '1' then
-							if DMAF_SET_ACK = '0' then							
-								DMAF_SET_REQ <= '1';
-							else
-								DMAF_SET_REQ <= '0';
-								FF_DTACK_N <= '0';
-							end if;
-						else
-							FF_DTACK_N <= '0';
-						end if;
+						FF_DTACK_N <= '0';
 					end if;
 					
 				elsif A(3 downto 2) = "01" then
 					-- Control Port
 					if PENDING = '1' then
-						CODE(5 downto 2) <= DI(7 downto 4);
-						-- ADDR(15 downto 14) <= DI(1 downto 0);
-						-- ADDR_LATCH <= DI(1 downto 0);
+						CODE(4 downto 2) <= DI(6 downto 4);
+						if DMA = '1' then
+							CODE(5) <= DI(7);
+						end if;
 						ADDR_LATCH <= DI(1 downto 0) & ADDR(13 downto 0);
 						
 						-- In case of DMA VBUS request, hold the TG68 with DTACK_N
@@ -852,8 +846,9 @@ begin
 							FF_DTACK_N <= '0';
 							PENDING <= '0';
 						end if;
-					else						
-						if DI(15 downto 13) = "100" then
+					else
+						CODE(1 downto 0) <= DI(15 downto 14);
+						if DI(15 downto 14) = "10" then
 							-- Register Set
 							REG_LATCH <= DI;
 							if REG_SET_ACK = '0' then
@@ -864,8 +859,6 @@ begin
 							end if;							
 						else
 							-- Address Set
-							CODE(1 downto 0) <= DI(15 downto 14);
-							-- ADDR <= ADDR_LATCH & DI(13 downto 0);
 							ADDR_LATCH(13 downto 0) <= DI(13 downto 0);
 							if ADDR_SET_ACK = '0' then
 								ADDR_SET_REQ <= '1';
@@ -2451,6 +2444,7 @@ begin
 		DMA_FILL <= '0';
 		DMA_COPY <= '0';
 		DMA_VBUS <= '0';
+		DMA_FINISH <= '0';
 		DMA_SOURCE <= (others => '0');
 		DMA_LENGTH <= (others => '0');
 		
@@ -2497,7 +2491,7 @@ begin
 		elsif DT_VBUS_SEL = '1' and (FIFO_WR_POS + 1 /= FIFO_RD_POS) and DT_FF_DTACK_N = '1' then
 			FIFO_ADDR( CONV_INTEGER( FIFO_WR_POS ) ) <= ADDR;
 			FIFO_DATA( CONV_INTEGER( FIFO_WR_POS ) ) <= DT_DMAV_DATA;
-			FIFO_CODE( CONV_INTEGER( FIFO_WR_POS ) ) <= CODE(2 downto 0);
+			FIFO_CODE( CONV_INTEGER( FIFO_WR_POS ) ) <= CODE(3 downto 0);
 			FIFO_WR_POS <= FIFO_WR_POS + 1;
 			ADDR <= ADDR + ADDR_STEP;
 			DT_FF_DTACK_N <= '0';
@@ -2552,12 +2546,14 @@ begin
 				DT_WR_DATA <= FIFO_DATA( CONV_INTEGER( FIFO_RD_POS ) );
 				FIFO_RD_POS <= FIFO_RD_POS + 1;
 				case FIFO_CODE( CONV_INTEGER( FIFO_RD_POS ) ) is
-				when "011" => -- CRAM Write
+				when "0011" => -- CRAM Write
 					DTC <= DTC_CRAM_WR;
-				when "101" => -- VSRAM Write
+				when "0101" => -- VSRAM Write
 					DTC <= DTC_VSRAM_WR;
-				when others => -- VRAM Write
+				when "0001" => -- VRAM Write
 					DTC <= DTC_VRAM_WR1;
+				when others =>
+					null; --ditch invalid entry
 				end case;
 			
 			when DTC_VRAM_WR1 =>
@@ -2663,6 +2659,7 @@ begin
 ----------------------------------------------------------------
 -- DMA ENGINE
 ----------------------------------------------------------------
+			DMA_FINISH <= '0';
 
 			case DMAC is
 			when DMA_IDLE =>
@@ -2730,6 +2727,7 @@ begin
 			
 			when DMA_FILL_LOOP =>
 				if DMA_LENGTH = 0 then
+					DMA_FINISH <= '1';
 					DMA_FILL_PRE <= '0';
 					DMA_FILL <= '0';
 					REG(20) <= x"00";
@@ -2836,6 +2834,7 @@ begin
 			
 			when DMA_COPY_LOOP =>
 				if DMA_LENGTH = 0 then
+					DMA_FINISH <= '1';
 					DMA_COPY <= '0';
 					REG(20) <= x"00";
 					REG(19) <= x"00";
@@ -2903,6 +2902,7 @@ begin
 				if DT_FF_DTACK_N = '0' then
 					DT_VBUS_SEL <= '0';
 					if DMA_LENGTH = 0 then
+						DMA_FINISH <= '1';
 						DMA_VBUS <= '0';
 						REG(20) <= x"00";
 						REG(19) <= x"00";
