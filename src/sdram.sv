@@ -112,7 +112,7 @@ localparam NO_WRITE_BURST = 1'b1;   // 0= write burst enabled, 1=only single acc
 localparam MODE = { 3'b000, NO_WRITE_BURST, OP_MODE, CAS_LATENCY, ACCESS_TYPE, BURST_LENGTH}; 
 
 // 64ms/8192 rows = 7.8us -> 842 cycles@108MHz
-localparam RFRSH_CYCLES = 10'd842;
+localparam RFRSH_CYCLES = 11'd842;
 
 // ---------------------------------------------------------------------
 // ------------------------ cycle state machine ------------------------
@@ -149,8 +149,8 @@ localparam STATE_RAS1      = 4'd4;   // Second ACTIVE command after RAS0 + tRRD 
 localparam STATE_CAS0      = STATE_RAS0 + RASCAS_DELAY; // CAS phase - 3
 localparam STATE_CAS1      = 4'd8;   //STATE_RAS1 + RASCAS_DELAY; // CAS phase - 5
 localparam STATE_DS0       = STATE_CAS0 + 1'd1; // 4
-localparam STATE_DS0b      = STATE_CAS0 + 2'd2; // 5
-localparam STATE_READ0     = STATE_CAS0 + CAS_LATENCY + 2'd2; // 8
+localparam STATE_DS0b      = STATE_CAS0 + 4'd2; // 5
+localparam STATE_READ0     = STATE_CAS0 + CAS_LATENCY + 4'd2; // 8
 localparam STATE_READ0b    = 4'd0;   //STATE_CAS0 + CAS_LATENCY + 2'd3; // 0
 localparam STATE_DS1       = 4'd0;   //STATE_CAS1 + 1'd1; // 0
 //localparam STATE_DS1b      = STATE_CAS1 + 2'd2; // not used
@@ -262,7 +262,7 @@ always @(*) begin
 		ds_next[0] = 2'b11;
 	end else if (ram68k_req ^ port_state[PORT_RAM68K]) begin
 		next_port[0] = PORT_RAM68K;
-		addr_latch_next[0] <= { 9'b101111110, ram68k_a };
+		addr_latch_next[0] = { 9'b101111110, ram68k_a };
 		{ oe_next[0], we_next[0] } = { ~ram68k_we, ram68k_we };
 		ds_next[0] = { ~ram68k_u_n, ~ram68k_l_n };
 		din_next[0] = ram68k_d;
