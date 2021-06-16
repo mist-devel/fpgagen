@@ -97,7 +97,7 @@ signal LG1_CH     : std_logic;
 signal LG2_CH     : std_logic;
 -- user_io
 signal buttons: std_logic_vector(1 downto 0);
-signal status:  std_logic_vector(31 downto 0) := (others => '0');
+signal status:  std_logic_vector(63 downto 0) := (others => '0');
 signal joya: std_logic_vector(31 downto 0);
 signal joyb: std_logic_vector(31 downto 0);
 signal ypbpr: std_logic;
@@ -228,7 +228,7 @@ component data_io
             SPI_SS2        : in std_logic;
             SPI_SS4        : in std_logic;
             SPI_DI         : in std_logic;
-            SPI_DO         : in std_logic  -- yes, sdo used as input
+            SPI_DO         : inout std_logic  -- yes, sdo used as input
         );
     end component data_io;
 
