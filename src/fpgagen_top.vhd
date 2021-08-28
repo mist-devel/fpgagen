@@ -527,6 +527,7 @@ COMPONENT fx68k
 		FC1			: out std_logic;
 		FC2			: out std_logic;
 		BGn			: out std_logic;
+		HALTn   : in std_logic := '1';
 		oRESETn		: out std_logic;
 		oHALTEDn	: out std_logic;
 		DTACKn		: in std_logic;

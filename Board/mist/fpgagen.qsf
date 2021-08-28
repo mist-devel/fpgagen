@@ -302,6 +302,8 @@ set_instance_assignment -name CURRENT_STRENGTH_NEW 4MA -to SPI_DO
 set_instance_assignment -name CURRENT_STRENGTH_NEW 8MA -to AUDIO_L
 set_instance_assignment -name CURRENT_STRENGTH_NEW 8MA -to AUDIO_R
 set_instance_assignment -name CURRENT_STRENGTH_NEW 8MA -to UART_TX
+set_global_assignment -name VERILOG_MACRO "FX68K_ALTERA_REGS=<None>"
+set_global_assignment -name VERILOG_SHOW_LMF_MAPPING_MESSAGES OFF
 set_global_assignment -name VHDL_FILE ../../src/fpgagen_top.vhd
 set_global_assignment -name VHDL_FILE ../../src/fpgagen_sdram_top.vhd
 set_global_assignment -name VHDL_FILE ../../src/os_rom.vhd
@@ -318,6 +320,7 @@ set_global_assignment -name VHDL_FILE ../../src/sdram.vhd
 set_global_assignment -name SYSTEMVERILOG_FILE ../../src/fx68k/uaddrPla.sv
 set_global_assignment -name SYSTEMVERILOG_FILE ../../src/fx68k/fx68kAlu.sv
 set_global_assignment -name SYSTEMVERILOG_FILE ../../src/fx68k/fx68k.sv
+set_global_assignment -name VERILOG_FILE ../../src/fx68k/altera_regs.v
 set_global_assignment -name QIP_FILE ../../src/SVP/SVP.qip
 set_global_assignment -name QIP_FILE ../../src/T80/T80.qip
 set_global_assignment -name QIP_FILE ../../jt89/hdl/jt89.qip
