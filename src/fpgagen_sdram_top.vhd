@@ -45,6 +45,7 @@ port(
 	reset_n      : in std_logic;
 	MCLK         : in std_logic; --  54MHz
 	SDR_CLK      : in std_logic; -- 108MHz
+	DL_CLK       : in std_logic;
 
 	FPGA_INIT_N  : in std_logic;
 
@@ -283,6 +284,7 @@ fpgagen : work.fpgagen_top
 port map (
 	reset_n      => reset_n,
 	MCLK         => MCLK,     --  54MHz
+	DL_CLK       => DL_CLK,
 
 	DAC_LDATA    => DAC_LDATA,
 	DAC_RDATA    => DAC_RDATA,

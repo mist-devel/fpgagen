@@ -3,8 +3,12 @@ use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.numeric_std.ALL;
 use work.build_id.all;
 use work.mist.ALL;
- 
+
 entity MIST_Toplevel is
+	generic
+	(
+		USE_QSPI : boolean := false
+	);
 	port
 	(
 		CLOCK_27		:	 in std_logic_vector(1 downto 0);
@@ -33,6 +37,10 @@ entity MIST_Toplevel is
 		SPI_SS3		:	 in STD_LOGIC; -- OSD
 		SPI_SS4		:	 in STD_LOGIC; -- "sniff" mode
 		CONF_DATA0  : in std_logic; -- SPI_SS for user_io
+
+		QCSn : in std_logic;
+		QSCK : in std_logic;
+		QDAT : in std_logic_vector(3 downto 0);
 
 		VGA_HS		:	buffer STD_LOGIC;
 		VGA_VS		:	buffer STD_LOGIC;
@@ -124,7 +132,7 @@ signal sd_dout_strobe:  std_logic;
 signal sd_buff_addr: std_logic_vector(8 downto 0);
 signal img_mounted  : std_logic_vector(1 downto 0);
 signal img_mountedD : std_logic;
-signal img_size : std_logic_vector(31 downto 0);
+signal img_size : std_logic_vector(63 downto 0);
 
 -- backup ram controller
 signal bk_state : std_logic := '0';
@@ -156,6 +164,11 @@ constant SVP_EN         : std_logic := '0';
 function core_name return string is
 begin
 	if SVP_EN = '1' then return "GEN_SVP"; else return "GENESIS"; end if;
+end function;
+
+function bool_to_sl(X:boolean) return std_logic is
+begin
+	if X then return '1'; else return '0'; end if;
 end function;
 
 constant CONF_DBG_STR : string := "";
@@ -215,7 +228,9 @@ COMPONENT hybrid_pwm_sd
 END COMPONENT;
 
 component data_io
-    generic ( ROM_DIRECT_UPLOAD : boolean := true );
+    generic ( ROM_DIRECT_UPLOAD : boolean := false;
+              USE_QSPI : boolean := false
+        );
     port (  clk_sys        : in std_logic;
             clkref_n       : in std_logic;
             ioctl_wr       : out std_logic;
@@ -228,7 +243,11 @@ component data_io
             SPI_SS2        : in std_logic;
             SPI_SS4        : in std_logic;
             SPI_DI         : in std_logic;
-            SPI_DO         : inout std_logic  -- yes, sdo used as input
+            SPI_DO         : inout std_logic;  -- yes, sdo used as input
+
+            QCSn           : in std_logic;
+            QSCK           : in std_logic;
+            QDAT           : in std_logic_vector(3 downto 0)
         );
     end component data_io;
 
@@ -287,6 +306,7 @@ port map(
 	reset_n => reset_n,
 	MCLK => MCLK,
 	SDR_CLK => memclk,
+	DL_CLK => memclk,
 
 	FPGA_INIT_N => pll_locked,
     DRAM_CKE => SDRAM_CKE,
@@ -483,8 +503,9 @@ sd_conf <= '0';
 user_io_inst : user_io
     generic map (
         STRLEN => CONF_STR'length,
-        ROM_DIRECT_UPLOAD => true
-	)
+        ROM_DIRECT_UPLOAD => not USE_QSPI,
+        FEATURES => x"0000000"&'0'&bool_to_sl(USE_QSPI)&"00"
+    )
     port map (
         clk_sys => MCLK,
         clk_sd => MCLK,
@@ -539,7 +560,7 @@ process (MCLK) begin
         end if;
 
         img_mountedD <= img_mounted(0);
-        if img_mountedD = '0' and img_mounted(0) = '1' and img_size /= x"00000000" then
+        if img_mountedD = '0' and img_mounted(0) = '1' and img_size /= x"0000000000000000" then
             bk_ena <= '1';
             bk_load <= '1';
         end if;
@@ -576,8 +597,12 @@ process (MCLK) begin
 end process;
 
 data_io_inst: data_io
+    generic map (
+        ROM_DIRECT_UPLOAD => not USE_QSPI,
+        USE_QSPI => USE_QSPI
+    )
     port map (
-        clk_sys        => MCLK,
+        clk_sys        => memclk,
         clkref_n       => not data_io_clkref,
         ioctl_wr       => data_io_wr,
         ioctl_addr     => open,
@@ -589,12 +614,16 @@ data_io_inst: data_io
         SPI_SS2        => SPI_SS2,
         SPI_SS4        => SPI_SS4,
         SPI_DI         => SPI_DI,
-        SPI_DO         => SPI_DO
+        SPI_DO         => SPI_DO,
+
+        QCSn           => QCSn,
+        QSCK           => QSCK,
+        QDAT           => QDAT
     );
 
-process(MCLK)
+process(memclk)
 begin
-    if rising_edge( MCLK ) then
+    if rising_edge( memclk ) then
         downloadingD <= downloading;
         ext_reset_n <= ext_reset_n(1 downto 0)&'1'; --stretch reset
         ext_data_ack <= '0';

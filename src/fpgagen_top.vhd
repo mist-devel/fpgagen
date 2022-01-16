@@ -46,6 +46,7 @@ entity fpgagen_top is
 port(
 	reset_n        : in std_logic;
 	MCLK           : in std_logic;  -- 54MHz
+	DL_CLK         : in std_logic;
 
 	DAC_LDATA      : out std_logic_vector(15 downto 0);
 	DAC_RDATA      : out std_logic_vector(15 downto 0);
@@ -1944,10 +1945,10 @@ end process;
 
 FL_DQ <= ext_data;
 
-process( MCLK )
+process( DL_CLK )
 variable rom_last_addr: unsigned(23 downto 1);
 begin
-	if rising_edge( MCLK ) then
+	if rising_edge( DL_CLK ) then
 		if ext_reset_n = '0' then
 
 			ext_data_req <= '0';
@@ -1955,14 +1956,16 @@ begin
 			romwr_req <= '0';
 			romwr_a <= (others => '0');
 			bootState<=BOOT_READ_1;
+			ext_data_req <= '1';
 			SRAM_EN_AUTO <= '0';
 			BIG_CART <= '0';
 		else
 			case bootState is 
 				when BOOT_READ_1 =>
-					ext_data_req <= '1';
 					if ext_data_ack ='1' then
 						ext_data_req <= '0';
+						romwr_d <= FL_DQ;
+						romwr_req <= not romwr_req;
 						bootState <= BOOT_WRITE_1;
 					end if;
 					if ext_bootdone = '1' then
@@ -1979,13 +1982,10 @@ begin
 						bootState <= BOOT_DONE;
 					end if;
 				when BOOT_WRITE_1 =>
-					romwr_d <= FL_DQ;
-					romwr_req <= not romwr_req;
-					bootState <= BOOT_WRITE_2;
-				when BOOT_WRITE_2 =>
 					if romwr_req = romwr_ack then
 						romwr_a <= romwr_a + 1;
 						bootState <= BOOT_READ_1;
+						ext_data_req <= '1';
 					end if;
 				when others => null;
 			end case;
