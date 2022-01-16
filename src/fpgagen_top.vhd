@@ -1376,8 +1376,8 @@ FM_SEL <= T80_FM_SEL or FX68_FM_SEL;
 FM_RNW <= T80_WR_N when T80_FM_SEL = '1' else FX68_RNW when FX68_FM_SEL = '1' else '1';
 FM_A <= T80_A(1 downto 0) when T80_FM_SEL = '1' else FX68_A(1) & not FX68_LDS_N;
 FM_DI <= T80_DO when T80_FM_SEL = '1' else FX68_DO(15 downto 8) when FX68_UDS_N = '0' else FX68_DO(7 downto 0);
-FX68_FM_D <= FM_DO & FM_DO;
-T80_FM_D <= FM_DO;
+FX68_FM_D <= FM_DO & FM_DO when FM_A = "00" else x"0000";
+T80_FM_D <= FM_DO when FM_A = "00" else x"00";
 
 -- PSG AREA
 -- Z80: 7F11h
