@@ -185,6 +185,7 @@ type t80brrc_t is ( T80BR_IDLE,
 signal T80BRRC : t80brrc_t;
 
 type sdrc_t is ( SDRC_IDLE,
+	SDRC_BOOT,
 	SDRC_FX68,
 	SDRC_DMA,
 	SDRC_T80);
@@ -312,6 +313,10 @@ signal DMA_FLASH_DTACK_N	: std_logic;
 signal DMA_FLASH_DTACK_N_REG: std_logic;
 
 -- SDRAM CONTROL
+signal BOOT_SDRAM_SEL       : std_logic;
+signal BOOT_SDRAM_DTACK_N   : std_logic;
+signal BOOT_SDRAM_A         : std_logic_vector(15 downto 1);
+
 signal FX68_SDRAM_SEL		: std_logic;
 signal FX68_SDRAM_D			: std_logic_vector(15 downto 0);
 signal FX68_SDRAM_D_REG		: std_logic_vector(15 downto 0);
@@ -480,7 +485,7 @@ signal VDP_HS_N	: std_logic;
 
 signal SDR_INIT_DONE	: std_logic;
 
-type bootStates is (BOOT_READ_1, BOOT_WRITE_1, BOOT_WRITE_2, BOOT_DONE);
+type bootStates is (BOOT_READ_1, BOOT_WRITE_1, BOOT_WRITE_2, BOOT_CLEAR_1, BOOT_CLEAR_2, BOOT_DONE);
 signal bootState : bootStates := BOOT_DONE;
 signal boot_reset_n : std_logic;
 
@@ -1658,19 +1663,23 @@ FX68_SDRAM_ACCEPT <= '1' when (FX68_PHI1 = '1' or FX68_SDRAM_ACK = '1' or FX68_R
 FX68_SDRAM_DTACK_N  <= '0' when SDRC = SDRC_FX68 and FX68_SDRAM_ACCEPT = '1' else FX68_SDRAM_DTACK_N_REG;
 FX68_SDRAM_D <= ram68k_q when SDRC = SDRC_FX68 and FX68_SDRAM_ACCEPT = '1' else FX68_SDRAM_D_REG;
 
-process( MRST_N, MCLK )
+process( ext_reset_n, MCLK )
 begin
-	if MRST_N = '0' then
+	if ext_reset_n = '0' then
 		FX68_SDRAM_DTACK_N_REG <= '1';
 		T80_SDRAM_DTACK_N <= '1';
 		DMA_SDRAM_DTACK_N_REG <= '1';
 		FX68_SDRAM_ACK <= '0';
+		BOOT_SDRAM_DTACK_N <= '1';
 
 		ram68k_req <= '0';
 
 		SDRC <= SDRC_IDLE;
 
 	elsif rising_edge(MCLK) then
+		if BOOT_SDRAM_SEL = '0' then
+			BOOT_SDRAM_DTACK_N <= '1';
+		end if;
 		if FX68_SDRAM_SEL = '0' then 
 			FX68_SDRAM_DTACK_N_REG <= '1';
 		end if;	
@@ -1684,7 +1693,15 @@ begin
 		case SDRC is
 		when SDRC_IDLE =>
 			--if VCLKCNT = "001" then
-				if FX68_SDRAM_SEL = '1' and FX68_SDRAM_DTACK_N = '1' then
+				if BOOT_SDRAM_SEL = '1' and BOOT_SDRAM_DTACK_N = '1' then
+					ram68k_req <= not ram68k_req;
+					ram68k_a <= BOOT_SDRAM_A;
+					ram68k_d <= (others => '0');
+					ram68k_we <= '1';
+					ram68k_u_n <= '0';
+					ram68k_l_n <= '0';
+					SDRC <= SDRC_BOOT;
+				elsif FX68_SDRAM_SEL = '1' and FX68_SDRAM_DTACK_N = '1' then
 					ram68k_req <= not ram68k_req;
 					ram68k_a <= FX68_A(15 downto 1);
 					ram68k_d <= FX68_DO;
@@ -1710,6 +1727,12 @@ begin
 					SDRC <= SDRC_DMA;
 				end if;
 			--end if;
+
+		when SDRC_BOOT =>
+			if ram68k_req = ram68k_ack then
+				BOOT_SDRAM_DTACK_N <= '0';
+				SDRC <= SDRC_IDLE;
+			end if;
 
 		when SDRC_FX68 =>
 			if FX68_PHI1 = '1' or FX68_RNW = '0' then
@@ -1959,6 +1982,8 @@ begin
 			ext_data_req <= '1';
 			SRAM_EN_AUTO <= '0';
 			BIG_CART <= '0';
+			BOOT_SDRAM_SEL <= '0';
+			BOOT_SDRAM_A <= (others=>'0');
 		else
 			case bootState is 
 				when BOOT_READ_1 =>
@@ -1979,13 +2004,27 @@ begin
 						if rom_last_addr(23 downto 22) /= 0 then
 							BIG_CART <= '1';
 						end if;
-						bootState <= BOOT_DONE;
+						bootState <= BOOT_CLEAR_1;
 					end if;
 				when BOOT_WRITE_1 =>
 					if romwr_req = romwr_ack then
 						romwr_a <= romwr_a + 1;
 						bootState <= BOOT_READ_1;
 						ext_data_req <= '1';
+					end if;
+				when BOOT_CLEAR_1 =>
+					if BOOT_SDRAM_DTACK_N = '1' then
+						BOOT_SDRAM_SEL <= '1';
+						bootState <= BOOT_CLEAR_2;
+					end if;
+				when BOOT_CLEAR_2 =>
+					if BOOT_SDRAM_DTACK_N = '0' then
+						BOOT_SDRAM_SEL <= '0';
+						BOOT_SDRAM_A <= BOOT_SDRAM_A + 1;
+						bootState <= BOOT_CLEAR_1;
+						if BOOT_SDRAM_A = "111"&x"FFF" then
+							bootState <= BOOT_DONE;
+						end if;
 					end if;
 				when others => null;
 			end case;
