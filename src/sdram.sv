@@ -317,10 +317,6 @@ always @(*) begin
 	end
 end
 
-reg drive_dq;
-reg [15:0] dq_out;
-assign SDRAM_DQ = drive_dq ? dq_out : 16'bZZZZZZZZZZZZZZZZ;
-
 always @(posedge clk) begin
 
 	// permanently latch ram data to allow inferring fast input register
