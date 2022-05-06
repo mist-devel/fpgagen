@@ -157,7 +157,7 @@ signal downloadingD_MCLK: std_logic;
 signal d_state          : std_logic_vector(1 downto 0);
 
 -- external controller signals
-signal ext_reset_n      : std_logic_vector(2 downto 0) := "111";
+signal ext_reset_n      : std_logic_vector(15 downto 0) := x"FFFF";
 signal ext_bootdone     : std_logic := '0';
 signal ext_data         : std_logic_vector(15 downto 0);
 signal ext_data_req     : std_logic;
@@ -372,7 +372,7 @@ port map(
     saveram_rd      => sd_din_strobe,
     saveram_dout    => sd_din,
 
-    ext_reset_n  => ext_reset_n(2) and ext_reset_n(1) and ext_reset_n(0),
+    ext_reset_n  => ext_reset_n(15),
     ext_bootdone => ext_bootdone,
     ext_data     => ext_data,
     ext_data_req => ext_data_req,
@@ -643,12 +643,12 @@ process(memclk)
 begin
     if rising_edge( memclk ) then
         downloadingD <= downloading;
-        ext_reset_n <= ext_reset_n(1 downto 0)&'1'; --stretch reset
+        ext_reset_n <= ext_reset_n(14 downto 0)&'1'; --stretch reset
         ext_data_ack <= '0';
         if (downloadingD = '0' and downloading = '1') then
             -- ROM downloading start
             ext_bootdone <= '0';
-            ext_reset_n(0) <= '0';
+            ext_reset_n <= x"0000";
             d_state <= "00";
             data_io_clkref <= '1';
         elsif (downloading = '0') then
