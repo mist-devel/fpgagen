@@ -943,12 +943,12 @@ begin
 				RAM_RFRSH_CNT <= (others => '0');
 				RAM_RFRSH_DELAY <= '0';
 			elsif RAM_RFRSH_CNT >= 119 then -- RAM refresh from 120 to 132 cycles
-				if RAM_RFRSH_DELAY = '0' and FX68_SDRAM_SEL = '0' then
+				if RAM_RFRSH_DELAY = '0' and FX68_SDRAM_SEL = '0' and T80_SDRAM_SEL = '0' then
 					RAM_RFRSH_DELAY <= not CPU_TURBO;
 					RAM_RFRSH_DELAY_CNT <= "11";
 				end if;
 				-- the refresh is done before 132 cycles reached, and the CPU starts a RAM access cycle
-				if RAM_RFRSH_DELAY = '1' and FX68_SDRAM_SEL = '1' then
+				if RAM_RFRSH_DELAY = '1' and (FX68_SDRAM_SEL = '1' or T80_SDRAM_SEL = '1') then
 					RAM_RFRSH_DELAY_CNT <= RAM_RFRSH_DELAY_CNT - 1;
 					if RAM_RFRSH_DELAY_CNT = "00" then
 						RAM_RFRSH_DELAY <= '0';
@@ -1459,7 +1459,8 @@ begin
 	elsif rising_edge( MCLK ) then
 		case T80BRRC is
 		when T80BR_IDLE =>
-			if T80_FLASH_SEL = '1' and T80_FLASH_DTACK_N = '1' and VDP_BR_N = '1' and VDP_BGACK_N = '1' and FX68_BG_N = '1' then
+			if ((T80_FLASH_SEL = '1' and T80_FLASH_DTACK_N = '1') or (T80_SDRAM_SEL = '1' and T80_SDRAM_DTACK_N = '1')) and
+			VDP_BR_N = '1' and VDP_BGACK_N = '1' and FX68_BG_N = '1' then
 				T80_BR_N <= '0';
 				T80BRRC <= T80_BG;
 			end if;
@@ -1470,7 +1471,7 @@ begin
 				T80BRRC <= T80_BGACK;
 			end if;
 		when T80_BGACK =>
-			if T80_FLASH_SEL = '0' then
+			if T80_FLASH_SEL = '0' and T80_SDRAM_SEL = '0' then
 				T80_BGACK_N <= '1';
 				T80BRRC <= T80BR_IDLE;
 			end if;
@@ -1653,7 +1654,7 @@ end process;
 -- SDRAM (68K RAM) CONTROL
 FX68_SDRAM_SEL <= '1' when FX68_A(23 downto 21) = "111" and FX68_SEL = '1' else '0';
 T80_SDRAM_SEL <= '1' when T80_A(15) = '1' and BAR(23 downto 21) = "111" and
-	T80_MREQ_N = '0' and (T80_RD_N = '0' or T80_WR_N = '0') else '0';
+	T80_MREQ_N = '0' and T80_RFSH_N = '1' else '0';
 DMA_SDRAM_SEL <= '1' when VBUS_ADDR(23 downto 21) = "111" and VBUS_SEL = '1' else '0';
 
 DMA_SDRAM_DTACK_N  <= '0' when SDRC = SDRC_DMA and ram68k_req = ram68k_ack else DMA_SDRAM_DTACK_N_REG;
@@ -1710,7 +1711,7 @@ begin
 					ram68k_l_n <= FX68_LDS_N;
 					FX68_SDRAM_ACK <= '0';
 					SDRC <= SDRC_FX68;
-				elsif T80_SDRAM_SEL = '1' and T80_SDRAM_DTACK_N = '1' then
+				elsif T80_SDRAM_SEL = '1' and T80_SDRAM_DTACK_N = '1' and (T80_RD_N = '0' or T80_WR_N = '0') and T80_BGACK_N = '0' then
 					ram68k_req <= not ram68k_req;
 					ram68k_a <= BAR(15) & T80_A(14 downto 1);
 					ram68k_d <= T80_DO & T80_DO;
@@ -1746,7 +1747,7 @@ begin
 			end if;
 
 		when SDRC_T80 =>
-			if ram68k_req = ram68k_ack then
+			if ram68k_req = ram68k_ack and RAM_RFRSH_DELAY = '0' then
 				if T80_A(0) = '0' then
 					T80_SDRAM_D <= ram68k_q(15 downto 8);
 				else
