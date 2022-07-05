@@ -364,6 +364,7 @@ signal FIELD		: std_logic;
 signal FIELD_LATCH	: std_logic;
 
 -- HV COUNTERS
+signal HV_PIXDIV_EN : std_logic;
 signal HV_PIXDIV	: std_logic_vector(3 downto 0);
 signal HV_HCNT		: std_logic_vector(8 downto 0);
 signal HV_VCNT		: std_logic_vector(8 downto 0);
@@ -2352,6 +2353,84 @@ REFRESH_SLOT <=
 	(H40 = '0' and HV_HCNT /= 486 and HV_HCNT /= 38 and HV_HCNT /= 102 and HV_HCNT /= 166 and HV_HCNT /= 230) else
 	'1';
 
+-- H40 slow slots: 8aaaaaaa99aaaaaaa8aaaaaaa99aaaaaaa
+-- 8, 10, 10, 10, 10, 10, 10, 10, 9, 9, 10, 10, 10, 10, 10, 10, 10, 8, 10, 10, 10, 10, 10, 10, 10, 9, 9, 10, 10, 10, 10, 10, 10, 10
+-- 460                           468                               477                            485                            493
+HV_PIXDIV_EN <= '1' when (RS0 = '1' and H40 = '1' and 
+                         ((HV_PIXDIV = 8-1 and (HV_HCNT <= 460 or HV_HCNT > 493 or HV_HCNT = 477)) or
+                         ((HV_PIXDIV = 9-1 and (HV_HCNT = 468 or HV_HCNT = 469 or HV_HCNT = 485 or HV_HCNT = 486))) or
+                         (HV_PIXDIV = 10-1))) or --normal H40 - 28*10+4*9+388*8=3420 cycles
+                         (RS0 = '0' and H40 = '1' and HV_PIXDIV = 8-1) or --fast H40
+                         (RS0 = '0' and H40 = '0' and HV_PIXDIV = 10-1) or --normal H32
+                         (RS0 = '1' and H40 = '0' and HV_PIXDIV = 8-1) else --fast H32
+                '0';
+
+process(HV_PIXDIV_EN, IN_VBL, DE, HV_HCNT, REFRESH_SLOT, H_DISP_WIDTH, H40, HSCROLL_READ)
+begin
+	FIFO_EN <= '0';
+	SLOT_EN <= '0';
+	REFRESH_EN <= '0';
+
+	SP1_EN <= '0';
+	SP2_EN <= '0';
+	SP3_EN <= '0';
+	BGA_MAPPING_EN <= '0';
+	BGA_PATTERN_EN <= '0';
+	BGB_MAPPING_EN <= '0';
+	BGB_PATTERN_EN <= '0';
+	HSCROLL_READ_EN <= '0';
+
+	if HV_PIXDIV_EN = '1' then
+		-- VRAM Access slot enables
+		if IN_VBL = '1' or DE = '0'
+		then
+			if REFRESH_SLOT = '0' -- skip refresh slots
+			then
+				FIFO_EN <= not HV_HCNT(0);
+			end if;
+		else
+			if (HV_HCNT(3 downto 0) = "0010" and HV_HCNT(5 downto 4) /= "11" and HV_HCNT < H_DISP_WIDTH) or
+				(H40 = '1' and (HV_HCNT = 320 or HV_HCNT = 322 or HV_HCNT = 462)) or
+				(H40 = '0' and (HV_HCNT = 288 or HV_HCNT = 484 or HV_HCNT = 256 or HV_HCNT = 258))
+			then
+				FIFO_EN <= '1';
+			end if;
+		end if;
+
+		SP1_EN <= '1'; --SP1 Engine checks one sprite/pixel
+
+		case HV_HCNT(3 downto 0) is
+			when "0000" => BGA_MAPPING_EN <= '1';
+			when "0010" => null; -- external or refresh
+			when "0100" => BGA_PATTERN_EN <= '1';
+			when "0110" => BGA_PATTERN_EN <= '1';
+			when "1000" => BGB_MAPPING_EN <= '1';
+			when "1010" => SP2_EN <= '1';
+			when "1100" => BGB_PATTERN_EN <= '1';
+			when "1110" => BGB_PATTERN_EN <= '1';
+			when others => null;
+		end case;
+
+		if HV_HCNT(0) = '0' and
+			((H40 = '1' and HV_HCNT /= 320 and HV_HCNT /= 322 and HV_HCNT /= 462) or
+			(H40 = '0' and HV_HCNT /= 288 and HV_HCNT /= 484 and HV_HCNT /= 256 and HV_HCNT /= 258)) and -- external slots
+			HV_HCNT /= 486 and -- hscroll read slot
+			HV_HCNT /= 496 and HV_HCNT /= 500 and HV_HCNT /= 502 and HV_HCNT /= 504 and HV_HCNT /= 508 -- rendering slots
+		then
+			SP3_EN <= '1';
+		end if;
+
+		SLOT_EN <= not HV_HCNT(0);
+		if (IN_VBL = '1' or DE = '0') and REFRESH_SLOT = '1' then
+			REFRESH_EN <= '1';
+		end if;
+
+		if HV_HCNT = HSCROLL_READ then
+			HSCROLL_READ_EN <= '1';
+		end if;
+	end if;
+end process;
+
 process( RST_N, CLK )
 begin
 	if RST_N = '0' then
@@ -2379,18 +2458,6 @@ begin
 		IN_VBL <= '1';
 		VBL_AREA <= '1';
 
-		FIFO_EN <= '0';
-		SLOT_EN <= '0';
-		REFRESH_EN <= '0';
-
-		SP1_EN <= '0';
-		SP2_EN <= '0';
-		SP3_EN <= '0';
-		BGA_MAPPING_EN <= '0';
-		BGA_PATTERN_EN <= '0';
-		BGB_MAPPING_EN <= '0';
-		BGB_PATTERN_EN <= '0';
-		HSCROLL_READ_EN <= '0';
 
 	elsif rising_edge(CLK) then
 
@@ -2399,18 +2466,6 @@ begin
 		VINT_TG68_PENDING_SET <= '0';
 		VINT_T80_SET <= '0';
 		VINT_T80_CLR <= '0';
-		FIFO_EN <= '0';
-		SLOT_EN <= '0';
-		REFRESH_EN <= '0';
-
-		SP1_EN <= '0';
-		SP2_EN <= '0';
-		SP3_EN <= '0';
-		BGA_MAPPING_EN <= '0';
-		BGA_PATTERN_EN <= '0';
-		BGB_MAPPING_EN <= '0';
-		BGB_PATTERN_EN <= '0';
-		HSCROLL_READ_EN <= '0';
 
 		OLD_HL <= HL;
 		if OLD_HL = '1' and HL = '0' then
@@ -2422,18 +2477,8 @@ begin
 			HV <= HV_VCNT_EXT(7 downto 1) & HV8 & HV_HCNT(8 downto 1);
 		end if;
 
-		-- H40 slow slots: 8aaaaaaa99aaaaaaa8aaaaaaa99aaaaaaa
-		-- 8, 10, 10, 10, 10, 10, 10, 10, 9, 9, 10, 10, 10, 10, 10, 10, 10, 8, 10, 10, 10, 10, 10, 10, 10, 9, 9, 10, 10, 10, 10, 10, 10, 10
-		-- 460                           468                               477                            485                            493
-
 		HV_PIXDIV <= HV_PIXDIV + 1;
-		if (RS0 = '1' and H40 = '1' and 
-			((HV_PIXDIV = 8-1 and (HV_HCNT <= 460 or HV_HCNT > 493 or HV_HCNT = 477)) or
-			((HV_PIXDIV = 9-1 and (HV_HCNT = 468 or HV_HCNT = 469 or HV_HCNT = 485 or HV_HCNT = 486))) or
-			(HV_PIXDIV = 10-1))) or --normal H40 - 28*10+4*9+388*8=3420 cycles
-		   (RS0 = '0' and H40 = '1' and HV_PIXDIV = 8-1) or --fast H40
-		   (RS0 = '0' and H40 = '0' and HV_PIXDIV = 10-1) or --normal H32
-		   (RS0 = '1' and H40 = '0' and HV_PIXDIV = 8-1) then --fast H32
+		if HV_PIXDIV_EN = '1' then
 			HV_PIXDIV <= (others => '0');
 			if HV_HCNT = H_DISP_START + H_TOTAL_WIDTH - 1 then
 				-- counter reset, originally HSYNC begins here
@@ -2533,54 +2578,6 @@ begin
 				end if;
 			end if;
 
-			-- VRAM Access slot enables
-
-			if IN_VBL = '1' or DE = '0'
-			then
-				if REFRESH_SLOT = '0' -- skip refresh slots
-				then
-					FIFO_EN <= not HV_HCNT(0);
-				end if;
-			else
-				if (HV_HCNT(3 downto 0) = "0100" and HV_HCNT(5 downto 4) /= "11" and HV_HCNT < H_DISP_WIDTH) or
-					(H40 = '1' and (HV_HCNT = 322 or HV_HCNT = 324 or HV_HCNT = 464)) or
-					(H40 = '0' and (HV_HCNT = 290 or HV_HCNT = 486 or HV_HCNT = 258 or HV_HCNT = 260))
-				then
-					FIFO_EN <= '1';
-				end if;
-			end if;
-
-			SP1_EN <= '1'; --SP1 Engine checks one sprite/pixel
-
-			case HV_HCNT(3 downto 0) is
-				when "0010" => BGA_MAPPING_EN <= '1';
-				when "0100" => null; -- external or refresh
-				when "0110" => BGA_PATTERN_EN <= '1';
-				when "1000" => BGA_PATTERN_EN <= '1';
-				when "1010" => BGB_MAPPING_EN <= '1';
-				when "1100" => SP2_EN <= '1';
-				when "1110" => BGB_PATTERN_EN <= '1';
-				when "0000" => BGB_PATTERN_EN <= '1';
-				when others => null;
-			end case;
-
-			if HV_HCNT(0) = '0' and
-				((H40 = '1' and HV_HCNT /= 322 and HV_HCNT /= 324 and HV_HCNT /= 464) or
-				(H40 = '0' and HV_HCNT /= 290 and HV_HCNT /= 486 and HV_HCNT /= 258 and HV_HCNT /= 260)) and -- external slots
-				HV_HCNT /= 488 and -- hscroll read slot
-				HV_HCNT /= 498 and HV_HCNT /= 502 and HV_HCNT /= 504 and HV_HCNT /= 506 and HV_HCNT /= 510 -- rendering slots
-			then
-				SP3_EN <= '1';
-			end if;
-
-			SLOT_EN <= not HV_HCNT(0);
-			if (IN_VBL = '1' or DE = '0') and REFRESH_SLOT = '1' then
-				REFRESH_EN <= '1';
-			end if;
-
-			if HV_HCNT = HSCROLL_READ then
-				HSCROLL_READ_EN <= '1';
-			end if;
 		end if;
 	end if;
 end process;
@@ -2598,7 +2595,7 @@ SP1E_ACTIVATE <= '1' when PRE_V_ACTIVE = '1' and HV_HCNT = H_INT_POS + 1 else '0
 -- Stage 2 - runs in the active area
 SP2E_ACTIVATE <= '1' when PRE_V_ACTIVE = '1' and HV_HCNT = 0 else '0';
 -- Stage 3 runs 3 slots after the background rendering ends
-SP3E_ACTIVATE <= '1' when PRE_V_ACTIVE = '1' and HV_HCNT = H_DISP_WIDTH + 5 else '0';
+SP3E_ACTIVATE <= '1' when PRE_V_ACTIVE = '1' and HV_HCNT = H_DISP_WIDTH + 3 else '0';
 
 process( CLK )
 	variable x : std_logic_vector(8 downto 0);
