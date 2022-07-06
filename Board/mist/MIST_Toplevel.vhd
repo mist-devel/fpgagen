@@ -90,12 +90,36 @@ signal OEA        : std_logic_vector(7 downto 0);
 signal DINB       : std_logic_vector(7 downto 0);
 signal DOUTB      : std_logic_vector(7 downto 0);
 signal OEB        : std_logic_vector(7 downto 0);
+signal DOUT_CTRLA : std_logic_vector(7 downto 0);
+signal DOUT_CTRLB : std_logic_vector(7 downto 0);
+signal DOUT_CTRLC : std_logic_vector(7 downto 0);
+signal DOUT_CTRLD : std_logic_vector(7 downto 0);
+signal DAT_CTRLA  : std_logic_vector(7 downto 0);
+signal DAT_CTRLB  : std_logic_vector(7 downto 0);
+signal DAT_CTRLC  : std_logic_vector(7 downto 0);
+signal DAT_CTRLD  : std_logic_vector(7 downto 0);
+signal OE_CTRLA   : std_logic_vector(7 downto 0);
+signal OE_CTRLB   : std_logic_vector(7 downto 0);
+signal OE_CTRLC   : std_logic_vector(7 downto 0);
+signal OE_CTRLD   : std_logic_vector(7 downto 0);
+signal JCART_TH   : std_logic;
+signal JCART_DO   : std_logic_vector(15 downto 0);
+
+signal DOUT_4WAY1 : std_logic_vector(7 downto 0);
+signal DOUT_4WAY2 : std_logic_vector(7 downto 0);
+
 signal JOY_SWAP   : std_logic;
 signal JOY_Y_SWAP : std_logic;
 signal JOY_1      : std_logic_vector(11 downto 0);
 signal JOY_2      : std_logic_vector(11 downto 0);
+signal JOY_3      : std_logic_vector(11 downto 0);
+signal JOY_4      : std_logic_vector(11 downto 0);
 signal JOY_3BUT   : std_logic;
 signal MSEL       : std_logic_vector(1 downto 0);
+signal MULTITAP   : std_logic_vector(1 downto 0);
+signal TEAMPLAY   : std_logic;
+signal EA_MULTITAP: std_logic;
+signal JCART      : std_logic;
 signal LG_SEL     : std_logic_vector(1 downto 0);
 signal LG_TARGET  : std_logic;
 signal LG_SENSOR  : std_logic;
@@ -114,6 +138,8 @@ signal buttons: std_logic_vector(1 downto 0);
 signal status:  std_logic_vector(63 downto 0) := (others => '0');
 signal joya: std_logic_vector(31 downto 0);
 signal joyb: std_logic_vector(31 downto 0);
+signal joyc: std_logic_vector(31 downto 0);
+signal joyd: std_logic_vector(31 downto 0);
 signal ypbpr: std_logic;
 signal scandoubler_disable: std_logic;
 signal no_csync : std_logic;
@@ -200,6 +226,7 @@ constant CONF_STR : string := core_name &
     "P2OA,Only 3 buttons,Off,On;"&
     "P2OMN,Lightgun,Off,Menacer,Justifier 1P,Justifier 2P;"&
     "P2OFG,Mouse,Off,Port 1,Port 2;"&
+    "P2OOP,Multitap,Off,Sega Team Player,EA 4 Way Play,J-Cart;"&
     "P3O78,Region,Auto,EU,JP,US;"&
     "P3OD,Fake EEPROM,Off,On;"&
     "P3OI,CPU Turbo,Off,On;"&
@@ -314,9 +341,15 @@ JOY_Y_SWAP <= status(9);
 JOY_3BUT <= status(10);
 MSEL <= status(16 downto 15);
 LG_SEL <= status(23 downto 22);
+MULTITAP <= status(25 downto 24);
+TEAMPLAY <= '1' when MULTITAP = "01" else '0';
+EA_MULTITAP <= '1' when MULTITAP = "10" else '0';
+JCART <= '1' when MULTITAP = "11" else '0';
 
 JOY_1 <= joya(11 downto 0) when JOY_SWAP = '0' else joyb(11 downto 0);
 JOY_2 <= joyb(11 downto 0) when JOY_SWAP = '0' else joya(11 downto 0);
+JOY_3 <= joyc(11 downto 0);
+JOY_4 <= joyd(11 downto 0);
 
 --SDRAM_A(12)<='0';
 sdram_top : entity work.fpgagen_sdram_top
@@ -347,6 +380,11 @@ port map(
 	DINB => DINB,
 	DOUTB => DOUTB,
 	OEB => OEB,
+
+	-- JCART signals
+	JCART_EN => JCART,
+	JCART_TH => JCART_TH,
+	JCART_DO => JCART_DO,
 
 	-- Video, Audio/CMT ports
 	RED => gen_red,
@@ -381,18 +419,26 @@ port map(
     ext_sw       => ext_sw
 );
 
+DINA <= DOUT_CTRLA when EA_MULTITAP = '0' else DOUT_4WAY1;
+DINB <= DOUT_CTRLB when EA_MULTITAP = '0' else DOUT_4WAY2;
+
+DAT_CTRLA <= DOUTA;
+OE_CTRLA <= OEA;
+
 gen_ctrlA : entity work.gen_ctrl
 port map (
 	RST_N        => reset_n,
 	CLK          => MCLK,
 
 	-- controller port pins
-	DAT          => DOUTA,
-	DOUT         => DINA,
-	CTL          => OEA,
+	DAT          => DAT_CTRLA,
+	DOUT         => DOUT_CTRLA,
+	CTL          => OE_CTRLA,
 
 	J3BUT        => JOY_3BUT,
 	SWAP_Y       => JOY_Y_SWAP,
+	TEAMPLAY     => TEAMPLAY,
+
 	UP           => not JOY_1(3),
 	DOWN         => not JOY_1(2),
 	LEFT         => not JOY_1(1),
@@ -405,6 +451,45 @@ port map (
 	Y            => not JOY_1(9),
 	Z            => not JOY_1(10),
 	MODE         => not JOY_1(11),
+
+	UP2          => not JOY_2(3),
+	DOWN2        => not JOY_2(2),
+	LEFT2        => not JOY_2(1),
+	RIGHT2       => not JOY_2(0),
+	A2           => not JOY_2(4),
+	B2           => not JOY_2(5),
+	C2           => not JOY_2(6),
+	START2       => not JOY_2(7),
+	X2           => not JOY_2(8),
+	Y2           => not JOY_2(9),
+	Z2           => not JOY_2(10),
+	MODE2        => not JOY_2(11),
+
+	UP3          => not JOY_3(3),
+	DOWN3        => not JOY_3(2),
+	LEFT3        => not JOY_3(1),
+	RIGHT3       => not JOY_3(0),
+	A3           => not JOY_3(4),
+	B3           => not JOY_3(5),
+	C3           => not JOY_3(6),
+	START3       => not JOY_3(7),
+	X3           => not JOY_3(8),
+	Y3           => not JOY_3(9),
+	Z3           => not JOY_3(10),
+	MODE3        => not JOY_3(11),
+
+	UP4          => not JOY_4(3),
+	DOWN4        => not JOY_4(2),
+	LEFT4        => not JOY_4(1),
+	RIGHT4       => not JOY_4(0),
+	A4           => not JOY_4(4),
+	B4           => not JOY_4(5),
+	C4           => not JOY_4(6),
+	START4       => not JOY_4(7),
+	X4           => not JOY_4(8),
+	Y4           => not JOY_4(9),
+	Z4           => not JOY_4(10),
+	MODE4        => not JOY_4(11),
 
 	LG_SEL       => "00",
 	LG_SENSOR    => '0',
@@ -423,15 +508,18 @@ port map (
 	mouse_strobe => mouse_strobe
 );
 
+DAT_CTRLB <= DOUTB when EA_MULTITAP = '0' else DOUTA;
+OE_CTRLB <= OEB when EA_MULTITAP = '0' else OEA;
+
 gen_ctrlB : entity work.gen_ctrl
 port map (
 	RST_N        => reset_n,
 	CLK          => MCLK,
 
 	-- controller port pins
-	DAT          => DOUTB,
-	DOUT         => DINB,
-	CTL          => OEB,
+	DAT          => DAT_CTRLB,
+	DOUT         => DOUT_CTRLB,
+	CTL          => OE_CTRLB,
 
 	J3BUT        => JOY_3BUT,
 	SWAP_Y       => JOY_Y_SWAP,
@@ -463,6 +551,83 @@ port map (
 	mouse_y      => std_logic_vector(mouse_y(7 downto 0)),
 	mouse_flags  => mouse_flags,
 	mouse_strobe => mouse_strobe
+);
+
+DAT_CTRLC <= DOUTA when JCART = '0' else '1'&JCART_TH&"111111";
+OE_CTRLC <= OEA when JCART = '0' else x"00";
+
+gen_ctrlC : entity work.gen_ctrl
+port map (
+	RST_N        => reset_n,
+	CLK          => MCLK,
+
+	-- controller port pins
+	DAT          => DAT_CTRLC,
+	DOUT         => DOUT_CTRLC,
+	CTL          => OE_CTRLC,
+
+	J3BUT        => JOY_3BUT,
+	SWAP_Y       => JOY_Y_SWAP,
+	UP           => not JOY_3(3),
+	DOWN         => not JOY_3(2),
+	LEFT         => not JOY_3(1),
+	RIGHT        => not JOY_3(0),
+	A            => not JOY_3(4),
+	B            => not JOY_3(5),
+	C            => not JOY_3(6),
+	START        => not JOY_3(7),
+	X            => not JOY_3(8),
+	Y            => not JOY_3(9),
+	Z            => not JOY_3(10),
+	MODE         => not JOY_3(11)
+);
+
+DAT_CTRLD <= DOUTA when JCART = '0' else '1'&JCART_TH&"111111";
+OE_CTRLD <= OEA when JCART = '0' else x"00";
+
+gen_ctrlD : entity work.gen_ctrl
+port map (
+	RST_N        => reset_n,
+	CLK          => MCLK,
+
+	-- controller port pins
+	DAT          => DAT_CTRLD,
+	DOUT         => DOUT_CTRLD,
+	CTL          => OE_CTRLD,
+
+	J3BUT        => JOY_3BUT,
+	SWAP_Y       => JOY_Y_SWAP,
+	UP           => not JOY_4(3),
+	DOWN         => not JOY_4(2),
+	LEFT         => not JOY_4(1),
+	RIGHT        => not JOY_4(0),
+	A            => not JOY_4(4),
+	B            => not JOY_4(5),
+	C            => not JOY_4(6),
+	START        => not JOY_4(7),
+	X            => not JOY_4(8),
+	Y            => not JOY_4(9),
+	Z            => not JOY_4(10),
+	MODE         => not JOY_4(11)
+);
+
+JCART_DO <= "00"&DOUT_CTRLD(5 downto 0) & '0'&JCART_TH&DOUT_CTRLC(5 downto 0);
+
+gen_4wayplay : entity work.gen_4wayplay
+port map (
+	RST_N        => reset_n,
+	CLK          => MCLK,
+
+	-- controller port pins
+	DATA         => DOUT_CTRLA,
+	DATB         => DOUT_CTRLB,
+	DATC         => DOUT_CTRLC,
+	DATD         => DOUT_CTRLD,
+
+	DOUT1        => DOUT_4WAY1,
+	DAT2         => DOUTB,
+	DOUT2        => DOUT_4WAY2,
+	CTL2         => OEB
 );
 
 gen_lg : entity work.gen_lightgun
@@ -539,6 +704,8 @@ user_io_inst : user_io
 
         joystick_0 => joya,
         joystick_1 => joyb,
+        joystick_2 => joyc,
+        joystick_3 => joyd,
         joystick_analog_0 => open,
         joystick_analog_1 => open,
 --      switches => switches,

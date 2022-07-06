@@ -86,6 +86,11 @@ port(
 	DOUTB    : out std_logic_vector(7 downto 0);
 	OEB      : out std_logic_vector(7 downto 0);
 
+	-- JCART signals
+	JCART_EN : in  std_logic;
+	JCART_TH : out std_logic;
+	JCART_DO : in  std_logic_vector(15 downto 0);
+
 	saveram_addr : in std_logic_vector(14 downto 0);
 	saveram_we   : in std_logic;
 	saveram_din  : in std_logic_vector(7 downto 0);
@@ -308,6 +313,10 @@ port map (
 	DINB         => DINB,
 	DOUTB        => DOUTB,
 	OEB          => OEB,
+
+	JCART_EN     => JCART_EN,
+	JCART_TH     => JCART_TH,
+	JCART_DO     => JCART_DO,
 
 	saveram_addr => saveram_addr,
 	saveram_we   => saveram_we,

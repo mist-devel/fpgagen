@@ -1,5 +1,5 @@
 -- Copyright (c) 2010 Gregory Estrade (greg@torlus.com)
--- Copyright (c) 2020 Gyorgy Szombathelyi
+-- Copyright (c) 2020-2022 Gyorgy Szombathelyi
 --
 -- All rights reserved
 --
@@ -49,8 +49,11 @@ entity gen_ctrl is
 		CTL    : in  std_logic_vector(7 downto 0); -- output enable
 
 		J3BUT  : in  std_logic;
-		SWAP_Y : in  std_logic;
+		SWAP_Y : in  std_logic := '0';
 
+		TEAMPLAY : in std_logic := '0';
+
+		-- active low buttons
 		UP     : in  std_logic;
 		DOWN   : in  std_logic;
 		LEFT   : in  std_logic;
@@ -64,21 +67,60 @@ entity gen_ctrl is
 		Y      : in  std_logic;
 		Z      : in  std_logic;
 
-		LG_SEL     : in  std_logic_vector(1 downto 0);
-		LG_SENSOR  : in std_logic;
-		LG_A       : in  std_logic;
-		LG_B       : in  std_logic;
-		LG_C       : in  std_logic;
-		LG_START   : in std_logic;
-		LG_SENSOR2 : in std_logic;
-		LG_A2      : in  std_logic;
-		LG_START2  : in std_logic;
+		UP2    : in  std_logic := '1';
+		DOWN2  : in  std_logic := '1';
+		LEFT2  : in  std_logic := '1';
+		RIGHT2 : in  std_logic := '1';
+		A2     : in  std_logic := '1';
+		B2     : in  std_logic := '1';
+		C2     : in  std_logic := '1';
+		START2 : in  std_logic := '1';
+		MODE2  : in  std_logic := '1';
+		X2     : in  std_logic := '1';
+		Y2     : in  std_logic := '1';
+		Z2     : in  std_logic := '1';
 
-		MSEL   : in  std_logic;
-		mouse_x: in  std_logic_vector(7 downto 0);
-		mouse_y: in  std_logic_vector(7 downto 0);
-		mouse_flags: in std_logic_vector(7 downto 0);
-		mouse_strobe: in std_logic
+		UP3    : in  std_logic := '1';
+		DOWN3  : in  std_logic := '1';
+		LEFT3  : in  std_logic := '1';
+		RIGHT3 : in  std_logic := '1';
+		A3     : in  std_logic := '1';
+		B3     : in  std_logic := '1';
+		C3     : in  std_logic := '1';
+		START3 : in  std_logic := '1';
+		MODE3  : in  std_logic := '1';
+		X3     : in  std_logic := '1';
+		Y3     : in  std_logic := '1';
+		Z3     : in  std_logic := '1';
+
+		UP4    : in  std_logic := '1';
+		DOWN4  : in  std_logic := '1';
+		LEFT4  : in  std_logic := '1';
+		RIGHT4 : in  std_logic := '1';
+		A4     : in  std_logic := '1';
+		B4     : in  std_logic := '1';
+		C4     : in  std_logic := '1';
+		START4 : in  std_logic := '1';
+		MODE4  : in  std_logic := '1';
+		X4     : in  std_logic := '1';
+		Y4     : in  std_logic := '1';
+		Z4     : in  std_logic := '1';
+
+		LG_SEL     : in  std_logic_vector(1 downto 0) := "00"; -- (0) - Menacer, (1) - Justifier
+		LG_SENSOR  : in  std_logic := '0';
+		LG_A       : in  std_logic := '0';
+		LG_B       : in  std_logic := '0';
+		LG_C       : in  std_logic := '0';
+		LG_START   : in  std_logic := '0';
+		LG_SENSOR2 : in  std_logic := '0';
+		LG_A2      : in  std_logic := '0';
+		LG_START2  : in  std_logic := '0';
+
+		MSEL   : in  std_logic := '0'; -- enable mouse
+		mouse_x: in  std_logic_vector(7 downto 0) := (others => '0');
+		mouse_y: in  std_logic_vector(7 downto 0) := (others => '0');
+		mouse_flags: in std_logic_vector(7 downto 0) := (others => '0');
+		mouse_strobe: in std_logic := '0'
 
 	);
 end gen_ctrl;
@@ -94,6 +136,8 @@ signal TR_D              : std_logic;
 signal TL                : std_logic;
 signal JCNT              : integer range 0 to 3;
 signal JTMR              : integer range 0 to 129000;
+signal TPCNT             : integer range 0 to 31;
+signal TPDAT             : std_logic_vector(75 downto 0);
 signal MSTATE            : std_logic_vector(3 downto 0);
 signal MOUSE             : std_logic_vector(4 downto 0);
 signal MSTROB            : std_logic;
@@ -120,6 +164,17 @@ J_UP <= UP when SWAP_Y = '0' else DOWN;
 J_DOWN <= DOWN when SWAP_Y = '0' else UP;
 MOUSE_Y_ADJ <= mouse_flags(5) & mouse_y when SWAP_Y = '0' else (not mouse_flags(5) & not mouse_y) + 1;
 MOUSE_FLAGS_ADJ <= mouse_flags(7 downto 6) & MOUSE_Y_ADJ(8) & mouse_flags(4 downto 0);
+
+TPDAT(27 downto  0) <= "000"&not J3BUT&"000"&not J3BUT&"000"&not J3BUT&"000"&not J3BUT&"000000001111";
+TPDAT(75 downto 28) <= "1111111111111111" &
+         START4&A4&C4&B4&RIGHT4&LEFT4&DOWN4&UP4 & 
+         START3&A3&C3&B3&RIGHT3&LEFT3&DOWN3&UP3 &
+         START2&A2&C2&B2&RIGHT2&LEFT2&DOWN2&UP2 &
+         START&A&C&B&RIGHT&LEFT&DOWN&UP when J3BUT = '1' else
+         MODE4&X4&Y4&Z4&START4&A4&C4&B4&RIGHT4&LEFT4&DOWN4&UP4 & 
+         MODE3&X3&Y3&Z3&START3&A3&C3&B3&RIGHT3&LEFT3&DOWN3&UP3 &
+         MODE2&X2&Y2&Z2&START2&A2&C2&B2&RIGHT2&LEFT2&DOWN2&UP2 &
+         MODE&X&Y&Z&START&A&C&B&RIGHT&LEFT&DOWN&UP;
 
 process( CLK )
 begin
@@ -149,12 +204,41 @@ begin
 
 		end if;
 
+		DOUT <= DAT;
+		if CTL(7) = '0' then DOUT(7) <= '1'; end if;
+
 		if TH_D = '0' and TH = '1' then JCNT <= JCNT + 1; end if;
 		if TH_D /= TH then JTMR <= 0; end if;
 
-		DOUT <= DAT;
-		if CTL(7) = '0' then DOUT(7) <= '1'; end if;
-		if LG_SEL = "01" then -- Menacer
+		-- Team player: TR toggles state when TH is low
+		if TR_D /= TR then TPCNT <= TPCNT + 1; end if;
+		if TH = '1' then TPCNT <= 0; end if;
+
+		if TEAMPLAY = '1' then
+			DOUT(4) <= TR;
+			DOUT(5) <= TR;
+			DOUT(6) <= TH;
+			DOUT(7) <= '0';
+
+			if TH = '1' then
+				if CTL(3) = '0' then DOUT(3) <= '0';     end if;
+				if CTL(2) = '0' then DOUT(2) <= '0';     end if;
+				if CTL(1) = '0' then DOUT(1) <= '1';     end if;
+				if CTL(0) = '0' then DOUT(0) <= '1';     end if;
+			else
+				if TPCNT < 19 then
+					if CTL(3) = '0' then DOUT(3) <= TPDAT(TPCNT*4 + 3); end if;
+					if CTL(2) = '0' then DOUT(2) <= TPDAT(TPCNT*4 + 2); end if;
+					if CTL(1) = '0' then DOUT(1) <= TPDAT(TPCNT*4 + 1); end if;
+					if CTL(0) = '0' then DOUT(0) <= TPDAT(TPCNT*4 + 0); end if;
+				else
+					if CTL(3) = '0' then DOUT(3) <= '1';   end if;
+					if CTL(2) = '0' then DOUT(2) <= '1';   end if;
+					if CTL(1) = '0' then DOUT(1) <= '1';   end if;
+					if CTL(0) = '0' then DOUT(0) <= '1';   end if;
+				end if;
+			end if;
+		elsif LG_SEL = "01" then -- Menacer
 			if TR_D = '1' and TR = '0' then
 				MTH <= '1';
 			end if;
