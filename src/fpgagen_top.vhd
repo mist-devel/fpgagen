@@ -1768,11 +1768,13 @@ begin
 
 		when SDRC_T80 =>
 			if ram68k_req = ram68k_ack and RAM_RFRSH_DELAY = '0' then
-				if T80_A(0) = '0' then
-					T80_SDRAM_D <= ram68k_q(15 downto 8);
-				else
-					T80_SDRAM_D <= ram68k_q(7 downto 0);
-				end if;
+--				if T80_A(0) = '0' then
+--					T80_SDRAM_D <= ram68k_q(15 downto 8);
+--				else
+--					T80_SDRAM_D <= ram68k_q(7 downto 0);
+--				end if;
+				-- T80 cannot read from 68K RAM
+				T80_SDRAM_D <= x"FF";
 				T80_SDRAM_DTACK_N <= '0';
 				SDRC <= SDRC_IDLE;
 			end if;
