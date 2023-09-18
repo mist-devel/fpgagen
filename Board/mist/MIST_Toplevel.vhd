@@ -1,17 +1,20 @@
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.numeric_std.ALL;
-use work.build_id.all;
 use work.mist.ALL;
 
 entity MIST_Toplevel is
 	generic
 	(
-		USE_QSPI : boolean := false
+		DIRECT_UPLOAD : boolean := true;
+		USE_QSPI : boolean := false;
+		VGA_BITS : integer := 6;
+		INTERNAL_VRAM : boolean := false;
+		BUILD_DATE : string := ""
 	);
 	port
 	(
-		CLOCK_27		:	 in std_logic_vector(1 downto 0);
+		CLOCK_27		:	 in std_logic;
 		
 		LED			: 	out std_logic;
 
@@ -44,9 +47,9 @@ entity MIST_Toplevel is
 
 		VGA_HS		:	buffer STD_LOGIC;
 		VGA_VS		:	buffer STD_LOGIC;
-		VGA_R		:	out std_logic_vector(5 downto 0);
-		VGA_G		:	out std_logic_vector(5 downto 0);
-		VGA_B		:	out std_logic_vector(5 downto 0);
+		VGA_R		:	out std_logic_vector(VGA_BITS-1 downto 0);
+		VGA_G		:	out std_logic_vector(VGA_BITS-1 downto 0);
+		VGA_B		:	out std_logic_vector(VGA_BITS-1 downto 0);
 
 		AUDIO_L : out std_logic;
 		AUDIO_R : out std_logic
@@ -290,9 +293,9 @@ component data_io
             SPI_DI         : in std_logic;
             SPI_DO         : inout std_logic;  -- yes, sdo used as input
 
-            QCSn           : in std_logic;
-            QSCK           : in std_logic;
-            QDAT           : in std_logic_vector(3 downto 0)
+            QCSn           : in std_logic := '1';
+            QSCK           : in std_logic := '0';
+            QDAT           : in std_logic_vector(3 downto 0) := "0000"
         );
     end component data_io;
 
@@ -302,7 +305,7 @@ LED <= not core_led and not downloading and not bk_ena;
 
 U00 : entity work.pll
     port map(
-        inclk0 => CLOCK_27(0),	-- 27 MHz external
+        inclk0 => CLOCK_27,	-- 27 MHz external
         c0     => MCLK,			-- 54 MHz internal
         c2     => memclk,			-- 108 Mhz
         c3     => SDRAM_CLK,		-- 108 Mhz external
@@ -353,6 +356,9 @@ JOY_4 <= joyd(11 downto 0);
 
 --SDRAM_A(12)<='0';
 sdram_top : entity work.fpgagen_sdram_top
+generic map (
+	INTERNAL_VRAM => INTERNAL_VRAM
+)
 port map(
 	reset_n => reset_n,
 	MCLK => MCLK,
@@ -686,7 +692,7 @@ sd_conf <= '0';
 user_io_inst : user_io
     generic map (
         STRLEN => CONF_STR'length,
-        ROM_DIRECT_UPLOAD => not USE_QSPI,
+        ROM_DIRECT_UPLOAD => DIRECT_UPLOAD,
         FEATURES => x"0000000"&'0'&bool_to_sl(USE_QSPI)&"00"
     )
     port map (
@@ -783,7 +789,7 @@ end process;
 
 data_io_inst: data_io
     generic map (
-        ROM_DIRECT_UPLOAD => not USE_QSPI,
+        ROM_DIRECT_UPLOAD => DIRECT_UPLOAD,
         USE_QSPI => USE_QSPI
     )
     port map (
@@ -857,8 +863,9 @@ blue_out  <= (gen_blue and not (LG2_CH&LG2_CH&LG2_CH&LG2_CH)) or (LG1_CH&LG1_CH&
 mist_video : work.mist.mist_video
     generic map (
         SD_HCNT_WIDTH => 10,
-		COLOR_DEPTH => 4,
-		OSD_COLOR => "001" --blue
+        COLOR_DEPTH => 4,
+        OUT_COLOR_DEPTH => VGA_BITS,
+        OSD_COLOR => "001" --blue
     )
     port map (
         clk_sys     => MCLK,

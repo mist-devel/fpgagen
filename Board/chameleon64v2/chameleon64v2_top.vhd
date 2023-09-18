@@ -219,7 +219,7 @@ architecture rtl of chameleon64v2_top is
 	COMPONENT Guest_Toplevel
 		PORT
 		(
-			CLOCK_27 :	IN STD_LOGIC_VECTOR(1 downto 0);
+			CLOCK_27 :	IN STD_LOGIC;
 	--		RESET_N :   IN std_logic;
 			SDRAM_DQ		:	 INOUT STD_LOGIC_VECTOR(15 DOWNTO 0);
 			SDRAM_A		:	 OUT STD_LOGIC_VECTOR(12 DOWNTO 0);
@@ -466,7 +466,7 @@ port map (
 	guest: COMPONENT Guest_Toplevel
 	PORT map
 	(
-		CLOCK_27 => clk50m&clk50m,
+		CLOCK_27 => clk50m,
 --		RESET_N => reset_n,
 		-- clocks
 		SDRAM_DQ => ram_d,

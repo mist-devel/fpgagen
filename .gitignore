@@ -2,6 +2,7 @@ PLLJ_PLLSPE_INFO.txt
 *.bak
 *.qws
 build_id.vhd
+build_id.v
 syn/
 db/
 incremental_db/

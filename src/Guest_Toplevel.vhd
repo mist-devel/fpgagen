@@ -7,7 +7,7 @@ use work.mist.ALL;
 entity Guest_Toplevel is
 	port
 	(
-		CLOCK_27		:	 in std_logic_vector(1 downto 0);
+		CLOCK_27		:	 in std_logic;
 		
 		LED			: 	out std_logic;
 
@@ -262,7 +262,7 @@ LED <= not core_led and not downloading and not bk_ena;
 
 U00 : entity work.pll
     port map(
-        inclk0 => CLOCK_27(0),	-- 27 MHz external
+        inclk0 => CLOCK_27,	-- 27 MHz external
         c0     => MCLK,			-- 54 MHz internal
         c2     => memclk,			-- 108 Mhz
         c3     => SDRAM_CLK,		-- 108 Mhz external

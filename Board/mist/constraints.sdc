@@ -38,7 +38,7 @@ set_time_format -unit ns -decimal_places 3
 # Create Clock
 #**************************************************************
 
-create_clock -name clk_27 -period 37.037 [get_ports {CLOCK_27[0]}]
+create_clock -name clk_27 -period 37.037 [get_ports {CLOCK_27}]
 create_clock -name {SPI_SCK}  -period 41.666 -waveform { 20.8 41.666 } [get_ports {SPI_SCK}]
 
 #**************************************************************
@@ -46,10 +46,9 @@ create_clock -name {SPI_SCK}  -period 41.666 -waveform { 20.8 41.666 } [get_port
 #**************************************************************
 
 derive_pll_clocks
-
-set sdram_clk "U00|altpll_component|auto_generated|pll1|clk[3]"
-set mem_clk   "U00|altpll_component|auto_generated|pll1|clk[2]"
-set sys_clk   "U00|altpll_component|auto_generated|pll1|clk[0]"
+set sdram_clk "MIST_Toplevel|U00|altpll_component|auto_generated|pll1|clk[3]"
+set mem_clk   "MIST_Toplevel|U00|altpll_component|auto_generated|pll1|clk[2]"
+set sys_clk   "MIST_Toplevel|U00|altpll_component|auto_generated|pll1|clk[0]"
 #**************************************************************
 # Set Clock Latency
 #**************************************************************
@@ -83,7 +82,7 @@ set_output_delay -clock [get_clocks $sys_clk] -min -5 [get_ports {VGA_*}]
 # Set Clock Groups
 #**************************************************************
 
-set_clock_groups -asynchronous -group [get_clocks {SPI_SCK}] -group [get_clocks {U00|altpll_component|auto_generated|pll1|clk[*]}]
+set_clock_groups -asynchronous -group [get_clocks {SPI_SCK}] -group [get_clocks {MIST_Toplevel|U00|altpll_component|auto_generated|pll1|clk[*]}]
 
 #**************************************************************
 # Set False Path
@@ -104,13 +103,13 @@ set_multicycle_path -from [get_clocks $mem_clk] -to [get_clocks $sys_clk] -start
 
 set_multicycle_path -from [get_clocks $sdram_clk] -to [get_clocks $mem_clk] -setup 2
 
-set_multicycle_path -start -setup -from [get_keepers fpgagen_sdram_top:sdram_top|fpgagen_top:fpgagen|fx68k:fx68k_inst|Ir[*]] -to [get_keepers fpgagen_sdram_top:sdram_top|fpgagen_top:fpgagen|fx68k:fx68k_inst|microAddr[*]] 2
-set_multicycle_path -start -hold -from [get_keepers fpgagen_sdram_top:sdram_top|fpgagen_top:fpgagen|fx68k:fx68k_inst|Ir[*]] -to [get_keepers fpgagen_sdram_top:sdram_top|fpgagen_top:fpgagen|fx68k:fx68k_inst|microAddr[*]] 1
-set_multicycle_path -start -setup -from [get_keepers fpgagen_sdram_top:sdram_top|fpgagen_top:fpgagen|fx68k:fx68k_inst|Ir[*]] -to [get_keepers fpgagen_sdram_top:sdram_top|fpgagen_top:fpgagen|fx68k:fx68k_inst|nanoAddr[*]] 2
-set_multicycle_path -start -hold -from [get_keepers fpgagen_sdram_top:sdram_top|fpgagen_top:fpgagen|fx68k:fx68k_inst|Ir[*]] -to [get_keepers fpgagen_sdram_top:sdram_top|fpgagen_top:fpgagen|fx68k:fx68k_inst|nanoAddr[*]] 1
+set_multicycle_path -start -setup -from [get_keepers MIST_Toplevel:MIST_Toplevel|fpgagen_sdram_top:sdram_top|fpgagen_top:fpgagen|fx68k:fx68k_inst|Ir[*]] -to [get_keepers MIST_Toplevel:MIST_Toplevel|fpgagen_sdram_top:sdram_top|fpgagen_top:fpgagen|fx68k:fx68k_inst|microAddr[*]] 2
+set_multicycle_path -start -hold -from [get_keepers MIST_Toplevel:MIST_Toplevel|fpgagen_sdram_top:sdram_top|fpgagen_top:fpgagen|fx68k:fx68k_inst|Ir[*]] -to [get_keepers MIST_Toplevel:MIST_Toplevel|fpgagen_sdram_top:sdram_top|fpgagen_top:fpgagen|fx68k:fx68k_inst|microAddr[*]] 1
+set_multicycle_path -start -setup -from [get_keepers MIST_Toplevel:MIST_Toplevel|fpgagen_sdram_top:sdram_top|fpgagen_top:fpgagen|fx68k:fx68k_inst|Ir[*]] -to [get_keepers MIST_Toplevel:MIST_Toplevel|fpgagen_sdram_top:sdram_top|fpgagen_top:fpgagen|fx68k:fx68k_inst|nanoAddr[*]] 2
+set_multicycle_path -start -hold -from [get_keepers MIST_Toplevel:MIST_Toplevel|fpgagen_sdram_top:sdram_top|fpgagen_top:fpgagen|fx68k:fx68k_inst|Ir[*]] -to [get_keepers MIST_Toplevel:MIST_Toplevel|fpgagen_sdram_top:sdram_top|fpgagen_top:fpgagen|fx68k:fx68k_inst|nanoAddr[*]] 1
 
-set_multicycle_path -from {fpgagen_sdram_top:sdram_top|fpgagen_top:fpgagen|T80pa:t80|T80:u0|*} -setup 2
-set_multicycle_path -from {fpgagen_sdram_top:sdram_top|fpgagen_top:fpgagen|T80pa:t80|T80:u0|*} -hold 1
+set_multicycle_path -from {MIST_Toplevel:MIST_Toplevel|fpgagen_sdram_top:sdram_top|fpgagen_top:fpgagen|T80pa:t80|T80:u0|*} -setup 2
+set_multicycle_path -from {MIST_Toplevel:MIST_Toplevel|fpgagen_sdram_top:sdram_top|fpgagen_top:fpgagen|T80pa:t80|T80:u0|*} -hold 1
 
 set_multicycle_path -to {VGA_*[*]} -setup 2
 set_multicycle_path -to {VGA_*[*]} -hold 1

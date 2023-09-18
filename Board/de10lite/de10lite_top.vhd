@@ -123,7 +123,7 @@ architecture RTL of de10lite_top is
 COMPONENT Guest_Toplevel
 	PORT
 	(
-		CLOCK_27 :	IN STD_LOGIC_VECTOR(1 downto 0);
+		CLOCK_27 :	IN STD_LOGIC;
 --		RESET_N :   IN std_logic;
 		SDRAM_DQ		:	 INOUT STD_LOGIC_VECTOR(15 DOWNTO 0);
 		SDRAM_A		:	 OUT STD_LOGIC_VECTOR(12 DOWNTO 0);
@@ -226,7 +226,7 @@ joyd<=(others=>'1');
 guest: COMPONENT Guest_Toplevel
 	PORT map
 	(
-		CLOCK_27 => MAX10_CLK2_50&MAX10_CLK1_50,
+		CLOCK_27 => MAX10_CLK2_50,
 --		RESET_N => reset_n,
 		-- clocks
 		SDRAM_DQ => DRAM_DQ,

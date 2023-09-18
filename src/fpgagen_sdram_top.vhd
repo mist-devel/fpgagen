@@ -41,6 +41,9 @@ use IEEE.STD_LOGIC_UNSIGNED.ALL;
 use work.sdram.all;
 
 entity fpgagen_sdram_top is
+generic (
+  INTERNAL_VRAM : boolean := false
+);
 port(
 	reset_n      : in std_logic;
 	MCLK         : in std_logic; --  54MHz
@@ -156,18 +159,30 @@ signal sram_u_n : std_logic;
 
 -- VRAM
 signal vram_req : std_logic;
+signal vram_req_ext : std_logic;
 signal vram_ack : std_logic;
+signal vram_ack_int : std_logic_vector(1 downto 0);
+signal vram_ack_ext : std_logic;
 signal vram_we : std_logic;
+signal vram_we_int : std_logic;
 signal vram_a : std_logic_vector(15 downto 1);
 signal vram_d : std_logic_vector(15 downto 0);
 signal vram_q : std_logic_vector(15 downto 0);
+signal vram_q_int : std_logic_vector(15 downto 0);
+signal vram_q_ext : std_logic_vector(15 downto 0);
 signal vram_l_n : std_logic;
 signal vram_u_n : std_logic;
+signal vram_byteena : std_logic_vector(1 downto 0);
 
 signal vram32_req : std_logic;
+signal vram32_req_ext : std_logic;
 signal vram32_ack : std_logic;
+signal vram32_ack_int : std_logic_vector(1 downto 0);
+signal vram32_ack_ext : std_logic;
 signal vram32_a   : std_logic_vector(15 downto 1);
-signal vram32_q   : std_logic_vector(31 downto 0);
+signal vram32_q : std_logic_vector(31 downto 0);
+signal vram32_q_int : std_logic_vector(31 downto 0);
+signal vram32_q_ext : std_logic_vector(31 downto 0);
 
 -- SVP
 signal svp_ram1_req : std_logic;
@@ -192,6 +207,41 @@ signal svp_rom_a    : std_logic_vector(20 downto 1);
 signal svp_rom_q    : std_logic_vector(15 downto 0);
 
 begin
+
+-- -----------------------------------------------------------------------
+-- Internal VRAM
+-- -----------------------------------------------------------------------
+vram_byteena <= not vram_u_n & not vram_l_n;
+vram : entity work.vram
+port map(
+	clock => MCLK,
+
+	address_a => vram_a,
+	byteena_a => vram_byteena,
+	data_a => vram_d,
+	wren_a => vram_we_int,
+	q_a => vram_q_int,
+
+	address_b => vram32_a(15 downto 2),
+	data_b => (others => '0'),
+	q_b => vram32_q_int
+);
+
+process(MCLK)
+begin
+	if rising_edge(MCLK) then
+			vram_ack_int <= vram_ack_int(0) & vram_req;
+			vram32_ack_int <= vram32_ack_int(0) & vram32_req;
+			vram_we_int <= (vram_req xor vram_ack) and vram_we;
+	end if;
+end process;
+
+vram_req_ext <= '0' when INTERNAL_VRAM else vram_req;
+vram32_req_ext <= '0' when INTERNAL_VRAM else vram32_req;
+vram_ack <= vram_ack_int(1) when INTERNAL_VRAM else vram_ack_ext;
+vram32_ack <= vram32_ack_int(1) when INTERNAL_VRAM else vram32_ack_ext;
+vram_q <= vram_q_int when INTERNAL_VRAM else vram_q_ext;
+vram32_q <= vram32_q_int when INTERNAL_VRAM else vram32_q_ext;
 
 -- -----------------------------------------------------------------------
 -- SDRAM Controller
@@ -244,19 +294,19 @@ port map(
 	sram_u_n     => sram_u_n,
 	sram_l_n     => sram_l_n,
 
-	vram_req     => vram_req,
-	vram_ack     => vram_ack,
+	vram_req     => vram_req_ext,
+	vram_ack     => vram_ack_ext,
 	vram_we      => vram_we,
 	vram_a       => vram_a,
 	vram_d       => vram_d,
-	vram_q       => vram_q,
+	vram_q       => vram_q_ext,
 	vram_u_n     => vram_u_n,
 	vram_l_n     => vram_l_n,
 
-	vram32_req   => vram32_req,
-	vram32_ack   => vram32_ack,
+	vram32_req   => vram32_req_ext,
+	vram32_ack   => vram32_ack_ext,
 	vram32_a     => vram32_a,
-	vram32_q     => vram32_q,
+	vram32_q     => vram32_q_ext,
 
 	svp_ram1_req => svp_ram1_req,
 	svp_ram1_ack => svp_ram1_ack,
