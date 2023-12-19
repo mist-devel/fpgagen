@@ -1,13 +1,17 @@
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.numeric_std.ALL;
-use work.mist.ALL;
+
+library mist;
+use mist.mist.ALL;
 
 entity MIST_Toplevel is
 	generic
 	(
 		DIRECT_UPLOAD : boolean := true;
 		USE_QSPI : boolean := false;
+		BIG_OSD : boolean := false;
+		HDMI : boolean := false;
 		VGA_BITS : integer := 6;
 		INTERNAL_VRAM : boolean := false;
 		BUILD_DATE : string := ""
@@ -50,9 +54,24 @@ entity MIST_Toplevel is
 		VGA_R		:	out std_logic_vector(VGA_BITS-1 downto 0);
 		VGA_G		:	out std_logic_vector(VGA_BITS-1 downto 0);
 		VGA_B		:	out std_logic_vector(VGA_BITS-1 downto 0);
+   -- HDMI
+		HDMI_R     : out   std_logic_vector(7 downto 0) := (others => '0');
+		HDMI_G     : out   std_logic_vector(7 downto 0) := (others => '0');
+		HDMI_B     : out   std_logic_vector(7 downto 0) := (others => '0');
+		HDMI_HS    : out   std_logic := '0';
+		HDMI_VS    : out   std_logic := '0';
+		HDMI_DE    : out   std_logic := '0';
+		HDMI_PCLK  : out   std_logic := '0';
+		HDMI_SCL   : inout std_logic;
+		HDMI_SDA   : inout std_logic;
 
 		AUDIO_L : out std_logic;
-		AUDIO_R : out std_logic
+		AUDIO_R : out std_logic;
+
+		I2S_BCK    : out   std_logic;
+		I2S_LRCK   : out   std_logic;
+		I2S_DATA   : out   std_logic;
+		SPDIF_O    : out   std_logic
 	);
 END entity;
 
@@ -80,7 +99,17 @@ signal gen_hs     : std_logic;
 signal gen_vs     : std_logic;
 signal gen_hbl    : std_logic;
 signal gen_vbl    : std_logic;
+signal gen_border : std_logic;
 signal gen_ce_pix : std_logic;
+
+signal i2c_start : std_logic;
+signal i2c_read : std_logic;
+signal i2c_addr : std_logic_vector(6 downto 0);
+signal i2c_subaddr : std_logic_vector(7 downto 0);
+signal i2c_wdata : std_logic_vector(7 downto 0);
+signal i2c_rdata : std_logic_vector(7 downto 0);
+signal i2c_end : std_logic;
+signal i2c_ack : std_logic;
 
 signal red_out    : std_logic_vector(3 downto 0);
 signal green_out  : std_logic_vector(3 downto 0);
@@ -299,6 +328,34 @@ component data_io
         );
     end component data_io;
 
+component i2s
+    generic (
+        I2S_Freq   : integer := 48000;
+        AUDIO_DW   : integer := 16
+    );
+    port
+    (
+        clk        : in    std_logic;
+        reset      : in    std_logic;
+        clk_rate   : in    integer;
+        sclk       : out   std_logic;
+        lrclk      : out   std_logic;
+        sdata      : out   std_logic;
+        left_chan  : in    std_logic_vector(AUDIO_DW-1 downto 0);
+        right_chan : in    std_logic_vector(AUDIO_DW-1 downto 0)
+    );
+end component i2s;
+
+component spdif port
+    (
+        clk_i      : in    std_logic;
+        rst_i      : in    std_logic;
+        clk_rate_i : in    integer;
+        spdif_o    : out   std_logic;
+        sample_i   : in    std_logic_vector(31 downto 0)
+    );
+end component spdif;
+
 begin
 
 LED <= not core_led and not downloading and not bk_ena;
@@ -400,8 +457,8 @@ port map(
 	HS => gen_hs,
 	VS => gen_vs,
 	CE_PIX => gen_ce_pix,
-	VBL => open,
-	IN_BORDER => gen_vbl,
+	VBL => gen_vbl,
+	IN_BORDER => gen_border,
 	HBL => gen_hbl,
 
 	LED => core_led,
@@ -642,7 +699,7 @@ port map (
 	CLK          => MCLK,
 
 	CE_PIX       => gen_ce_pix,
-	VBL          => gen_vbl,
+	VBL          => gen_border,
 	HBL          => gen_hbl,
 
 	mouse_x      => std_logic_vector(mouse_x(7 downto 0)),
@@ -668,7 +725,7 @@ port map (
 	CLK          => MCLK,
 
 	CE_PIX       => gen_ce_pix,
-	VBL          => gen_vbl,
+	VBL          => gen_border,
 	HBL          => gen_hbl,
 
 	mouse_x      => std_logic_vector(mouse_x(7 downto 0)),
@@ -693,7 +750,7 @@ user_io_inst : user_io
     generic map (
         STRLEN => CONF_STR'length,
         ROM_DIRECT_UPLOAD => DIRECT_UPLOAD,
-        FEATURES => x"0000000"&'0'&bool_to_sl(USE_QSPI)&"00"
+        FEATURES => x"0000"&'0'&bool_to_sl(HDMI)&bool_to_sl(BIG_OSD)&'0'&x"00"&'0'&bool_to_sl(USE_QSPI)&"00"
     )
     port map (
         clk_sys => MCLK,
@@ -707,6 +764,15 @@ user_io_inst : user_io
         ypbpr => ypbpr,
         no_csync => no_csync,
         scandoubler_disable => scandoubler_disable,
+
+        i2c_start => i2c_start,
+        i2c_read => i2c_read,
+        i2c_addr => i2c_addr,
+        i2c_subaddr => i2c_subaddr,
+        i2c_dout => i2c_wdata,
+        i2c_din => i2c_rdata,
+        i2c_end => i2c_end,
+        i2c_ack => i2c_ack,
 
         joystick_0 => joya,
         joystick_1 => joyb,
@@ -860,10 +926,11 @@ red_out   <= (gen_red and not (LG1_CH&LG1_CH&LG1_CH&LG1_CH)) or (LG2_CH&LG2_CH&L
 green_out <= gen_green and not ((LG1_CH or LG2_CH)&(LG1_CH or LG2_CH)&(LG1_CH or LG2_CH)&(LG1_CH or LG2_CH));
 blue_out  <= (gen_blue and not (LG2_CH&LG2_CH&LG2_CH&LG2_CH)) or (LG1_CH&LG1_CH&LG1_CH&LG1_CH);
 
-mist_video : work.mist.mist_video
+vga_video : mist_video
     generic map (
         SD_HCNT_WIDTH => 10,
         COLOR_DEPTH => 4,
+        BIG_OSD => BIG_OSD,
         OUT_COLOR_DEPTH => VGA_BITS,
         OSD_COLOR => "001" --blue
     )
@@ -898,14 +965,96 @@ audiol_clamp <= audiol(audiol'high-1 downto 0) when audiol_sign=audiol_adj else 
 audior_clamp <= audior(audior'high-1 downto 0) when audior_sign=audior_adj else -- Pass through
 				(audior_clamp'high=>audior_sign,others=>audior_adj); -- Clamp
 
+hdmi_block : if HDMI generate
+
+	i2c_master_d : i2c_master
+	generic map (
+		CLK_Freq => 54000000
+	)
+	port map (
+		CLK => MCLK,
+		I2C_START => i2c_start,
+		I2C_READ => i2c_read,
+		I2C_ADDR => i2c_addr,
+		I2C_SUBADDR => i2c_subaddr,
+		I2C_WDATA => i2c_wdata,
+		I2C_RDATA => i2c_rdata,
+		I2C_END => i2c_end,
+		I2C_ACK => i2c_ack,
+		I2C_SCL => HDMI_SCL,
+		I2C_SDA => HDMI_SDA
+	);
+
+hdmi_video : mist_video
+    generic map (
+        SD_HCNT_WIDTH => 10,
+        COLOR_DEPTH => 4,
+        BIG_OSD => BIG_OSD,
+        USE_BLANKS => true,
+        OUT_COLOR_DEPTH => 8,
+        OSD_COLOR => "001" --blue
+    )
+    port map (
+        clk_sys     => MCLK,
+        scanlines   => status(12 downto 11),
+        scandoubler_disable => '0',
+        ypbpr       => '0',
+        no_csync    => '1',
+        rotate      => "00",
+        blend       => status(20),
+
+        SPI_SCK     => SPI_SCK,
+        SPI_SS3     => SPI_SS3,
+        SPI_DI      => SPI_DI,
+
+        HBlank      => gen_hbl,
+        VBlank      => gen_vbl,
+        HSync       => not gen_hs,
+        VSync       => not gen_vs,
+        R           => red_out,
+        G           => green_out,
+        B           => blue_out,
+
+        VGA_HS      => HDMI_HS,
+        VGA_VS      => HDMI_VS,
+        VGA_DE      => HDMI_DE,
+        VGA_R       => HDMI_R,
+        VGA_G       => HDMI_G,
+        VGA_B       => HDMI_B
+    );
+
+    HDMI_PCLK <= MCLK;
+end generate;
+
 audioout : component hybrid_pwm_sd_2ndorder
 port map (
-	clk => MCLK,
-	reset_n => reset_n,
-	d_l => not audiol_sign & audiol_clamp(13 downto 0) & '0',
-	q_l => AUDIO_L,
-	d_r => not audior_sign & audior_clamp(13 downto 0) & '0',
-	q_r => AUDIO_R
+    clk => MCLK,
+    reset_n => reset_n,
+    d_l => not audiol_sign & audiol_clamp(13 downto 0) & '0',
+    q_l => AUDIO_L,
+    d_r => not audior_sign & audior_clamp(13 downto 0) & '0',
+    q_r => AUDIO_R
 );
+
+my_i2s : i2s
+port map (
+    clk => MCLK,
+    reset => '0',
+    clk_rate => 54000000,
+    sclk => I2S_BCK,
+    lrclk => I2S_LRCK,
+    sdata => I2S_DATA,
+    left_chan  => audiol_sign & audiol_clamp(13 downto 0) & '0',
+    right_chan => audior_sign & audior_clamp(13 downto 0) & '0'
+	);
+
+my_spdif : spdif
+port map (
+    rst_i => '0',
+    clk_i => MCLK,
+    clk_rate_i => 54000000,
+    spdif_o => SPDIF_O,
+    sample_i => audior_sign & audior_clamp(13 downto 0) & '0' & audiol_sign & audiol_clamp(13 downto 0) & '0'
+	);
 
 end architecture;
