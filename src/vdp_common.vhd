@@ -43,7 +43,7 @@ constant VS_LINES               : integer := 4;
 -- Timing values from the Exodus emulator in HV_HCNT and HV_VCNT values
 
 constant H_DISP_START_H32       : integer := 466; -- -46
-constant H_DISP_START_H40       : integer := 458; -- -56
+constant H_DISP_START_H40       : integer := 457; -- -56
 
 constant HBORDER_LEFT           : integer := 13;
 constant HBORDER_RIGHT          : integer := 14;
@@ -102,8 +102,8 @@ constant VBORDER_START_NTSC_V30 : integer := 493;
 constant NTSC_LINES             : integer := 262;
 constant PAL_LINES              : integer := 313;
 
-constant HSCROLL_READ_H32       : integer := 486;
-constant HSCROLL_READ_H40       : integer := 486;
+constant HSCROLL_READ_H32       : integer := 487;
+constant HSCROLL_READ_H40       : integer := 487;
 
 constant OBJ_MAX_FRAME_H32      : integer := 64;
 constant OBJ_MAX_FRAME_H40      : integer := 80;

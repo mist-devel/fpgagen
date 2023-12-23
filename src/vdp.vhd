@@ -2349,8 +2349,8 @@ HV8 <= HV_VCNT_EXT(8) when LSM = "11" else HV_VCNT_EXT(0);
 -- still not sure: usable slots at line -1, border and blanking area
 REFRESH_SLOT <=
 	'0' when
-	(H40 = '1' and HV_HCNT /= 500 and HV_HCNT /= 52 and HV_HCNT /= 118 and HV_HCNT /= 180 and HV_HCNT /= 244 and HV_HCNT /= 308) or
-	(H40 = '0' and HV_HCNT /= 486 and HV_HCNT /= 38 and HV_HCNT /= 102 and HV_HCNT /= 166 and HV_HCNT /= 230) else
+	(H40 = '1' and HV_HCNT /= 501 and HV_HCNT /= 53 and HV_HCNT /= 119 and HV_HCNT /= 181 and HV_HCNT /= 245 and HV_HCNT /= 309) or
+	(H40 = '0' and HV_HCNT /= 487 and HV_HCNT /= 39 and HV_HCNT /= 103 and HV_HCNT /= 167 and HV_HCNT /= 231) else
 	'1';
 
 -- H40 slow slots: 8aaaaaaa99aaaaaaa8aaaaaaa99aaaaaaa
@@ -2386,12 +2386,12 @@ begin
 		then
 			if REFRESH_SLOT = '0' -- skip refresh slots
 			then
-				FIFO_EN <= not HV_HCNT(0);
+				FIFO_EN <= HV_HCNT(0);
 			end if;
 		else
-			if (HV_HCNT(3 downto 0) = "0010" and HV_HCNT(5 downto 4) /= "11" and HV_HCNT < H_DISP_WIDTH) or
-				(H40 = '1' and (HV_HCNT = 320 or HV_HCNT = 322 or HV_HCNT = 462)) or
-				(H40 = '0' and (HV_HCNT = 288 or HV_HCNT = 484 or HV_HCNT = 256 or HV_HCNT = 258))
+			if (HV_HCNT(3 downto 0) = "0011" and HV_HCNT(5 downto 4) /= "11" and HV_HCNT < H_DISP_WIDTH) or
+				(H40 = '1' and (HV_HCNT = 321 or HV_HCNT = 323 or HV_HCNT = 463)) or
+				(H40 = '0' and (HV_HCNT = 289 or HV_HCNT = 485 or HV_HCNT = 257 or HV_HCNT = 259))
 			then
 				FIFO_EN <= '1';
 			end if;
@@ -2400,27 +2400,27 @@ begin
 		SP1_EN <= '1'; --SP1 Engine checks one sprite/pixel
 
 		case HV_HCNT(3 downto 0) is
-			when "0000" => BGA_MAPPING_EN <= '1';
-			when "0010" => null; -- external or refresh
-			when "0100" => BGA_PATTERN_EN <= '1';
-			when "0110" => BGA_PATTERN_EN <= '1';
-			when "1000" => BGB_MAPPING_EN <= '1';
-			when "1010" => SP2_EN <= '1';
-			when "1100" => BGB_PATTERN_EN <= '1';
-			when "1110" => BGB_PATTERN_EN <= '1';
+			when "0001" => BGA_MAPPING_EN <= '1';
+			when "0011" => null; -- external or refresh
+			when "0101" => BGA_PATTERN_EN <= '1';
+			when "0111" => BGA_PATTERN_EN <= '1';
+			when "1001" => BGB_MAPPING_EN <= '1';
+			when "1011" => SP2_EN <= '1';
+			when "1101" => BGB_PATTERN_EN <= '1';
+			when "1111" => BGB_PATTERN_EN <= '1';
 			when others => null;
 		end case;
 
-		if HV_HCNT(0) = '0' and
-			((H40 = '1' and HV_HCNT /= 320 and HV_HCNT /= 322 and HV_HCNT /= 462) or
-			(H40 = '0' and HV_HCNT /= 288 and HV_HCNT /= 484 and HV_HCNT /= 256 and HV_HCNT /= 258)) and -- external slots
-			HV_HCNT /= 486 and -- hscroll read slot
-			HV_HCNT /= 496 and HV_HCNT /= 500 and HV_HCNT /= 502 and HV_HCNT /= 504 and HV_HCNT /= 508 -- rendering slots
+		if HV_HCNT(0) = '1' and
+			((H40 = '1' and HV_HCNT /= 321 and HV_HCNT /= 323 and HV_HCNT /= 463) or
+			(H40 = '0' and HV_HCNT /= 289 and HV_HCNT /= 485 and HV_HCNT /= 257 and HV_HCNT /= 259)) and -- external slots
+			HV_HCNT /= 487 and -- hscroll read slot
+			HV_HCNT /= 497 and HV_HCNT /= 501 and HV_HCNT /= 503 and HV_HCNT /= 505 and HV_HCNT /= 509 -- rendering slots
 		then
 			SP3_EN <= '1';
 		end if;
 
-		SLOT_EN <= not HV_HCNT(0);
+		SLOT_EN <= HV_HCNT(0);
 		if (IN_VBL = '1' or DE = '0') and REFRESH_SLOT = '1' then
 			REFRESH_EN <= '1';
 		end if;
@@ -2935,6 +2935,8 @@ process( RST_N, CLK )
 file F		: text open write_mode is "vdp_dbg.out";
 variable L	: line;
 -- synthesis translate_on
+variable fifo_inc : std_logic;
+variable fifo_dec : std_logic;
 begin
 	if RST_N = '0' then
 
@@ -2983,6 +2985,9 @@ begin
 
 	elsif rising_edge(CLK) then
 
+		fifo_inc := '0';
+		fifo_dec := '0';
+
 		if DT_RD_SEL = '0' then
 			DT_RD_DTACK_N <= '1';
 		end if;
@@ -3009,13 +3014,13 @@ begin
 					-- Data Port
 					PENDING <= '0';
 
-					if FIFO_FULL = '0' and DTC /= DTC_FIFO_RD and FF_DTACK_N = '1' then
+					if FIFO_FULL = '0' and FF_DTACK_N = '1' then
 						FIFO_ADDR( CONV_INTEGER( FIFO_WR_POS ) ) <= ADDR;
 						FIFO_DATA( CONV_INTEGER( FIFO_WR_POS ) ) <= DI;
 						FIFO_CODE( CONV_INTEGER( FIFO_WR_POS ) ) <= CODE(3 downto 0);
-						FIFO_DELAY( CONV_INTEGER( FIFO_WR_POS ) ) <= "00"; -- should be delayed, too? (no, according to Zsenilla by RSE demo)
+						FIFO_DELAY( CONV_INTEGER( FIFO_WR_POS ) ) <= "01"; -- should be delayed, too? (no, according to Zsenilla by RSE demo)
 						FIFO_WR_POS <= FIFO_WR_POS + 1;
-						FIFO_QUEUE <= FIFO_QUEUE + 1;
+						fifo_inc := '1';
 						ADDR <= ADDR + ADDR_STEP;
 						FF_DTACK_N <= '0';
 					end if;
@@ -3144,7 +3149,7 @@ begin
 				DT_WR_ADDR <= FIFO_ADDR( CONV_INTEGER( FIFO_RD_POS ) );
 				DT_WR_DATA <= FIFO_DATA( CONV_INTEGER( FIFO_RD_POS ) );
 				FIFO_RD_POS <= FIFO_RD_POS + 1;
-				FIFO_QUEUE <= FIFO_QUEUE - 1;
+				fifo_dec := '1';
 				case FIFO_CODE( CONV_INTEGER( FIFO_RD_POS ) ) is
 				when "0011" => -- CRAM Write
 					DTC <= DTC_CRAM_WR;
@@ -3604,7 +3609,7 @@ begin
 						FIFO_CODE( CONV_INTEGER( FIFO_WR_POS ) ) <= CODE(3 downto 0);
 						FIFO_DELAY( CONV_INTEGER( FIFO_WR_POS ) ) <= "10";
 						FIFO_WR_POS <= FIFO_WR_POS + 1;
-						FIFO_QUEUE <= FIFO_QUEUE + 1;
+						fifo_inc := '1';
 						ADDR <= ADDR + ADDR_STEP;
 
 						DMA_LENGTH <= DMA_LENGTH - 1;
@@ -3638,6 +3643,8 @@ begin
 				end if;
 			when others => null;
 		end case;
+
+		FIFO_QUEUE <= FIFO_QUEUE + fifo_inc - fifo_dec;
 	end if;
 
 end process;
