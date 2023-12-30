@@ -235,6 +235,11 @@ begin
 	if X then return '1'; else return '0'; end if;
 end function;
 
+function SEP return string is
+begin
+        if BIG_OSD then return "-;"; else return ""; end if;
+end function;
+
 constant CONF_DBG_STR : string := "";
 --constant CONF_DBG_STR : string :=
 --    "O3,VRAM Speed,Slow,Fast;"&
@@ -245,6 +250,7 @@ constant CONF_STR : string := core_name &
     ";BINGENMD ;"&
     "S,SAV,Mount;"&
     "TE,Write Save RAM;"&
+    SEP&
     "P1,Video & Audio;"&
     "P2,Controls;"&
     "P3,System;"&
@@ -262,6 +268,7 @@ constant CONF_STR : string := core_name &
     "P3O78,Region,Auto,EU,JP,US;"&
     "P3OD,Fake EEPROM,Off,On;"&
     "P3OI,CPU Turbo,Off,On;"&
+    SEP&
     CONF_DBG_STR&
     "T0,Reset;"&
     "V,v"&BUILD_DATE;
@@ -931,6 +938,7 @@ vga_video : mist_video
         SD_HCNT_WIDTH => 10,
         COLOR_DEPTH => 4,
         BIG_OSD => BIG_OSD,
+        USE_BLANKS => true,
         OUT_COLOR_DEPTH => VGA_BITS,
         OSD_COLOR => "001" --blue
     )
@@ -947,6 +955,8 @@ vga_video : mist_video
         SPI_SS3     => SPI_SS3,
         SPI_DI      => SPI_DI,
 
+        HBlank      => gen_hbl,
+        VBlank      => gen_vbl,
         HSync       => gen_hs,
         VSync       => gen_vs,
         R           => red_out,

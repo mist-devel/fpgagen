@@ -2886,14 +2886,13 @@ begin
 			if BORDER_EN = '0' then
 				if ((HV_HCNT - HBLANK_END - HBORDER_LEFT) >= H_DISP_WIDTH) then
 					HBL <= '1';
+					if HV_VCNT < V_DISP_HEIGHT_R then
+						VBL <= '0';
+					else
+						VBL <= '1';
+					end if;
 				else
 					HBL <= '0';
-				end if;
-
-				if HV_VCNT < V_DISP_HEIGHT_R then
-					VBL <= '0';
-				else
-					VBL <= '1';
 				end if;
 			else
 				HBL <= M_HBL;
