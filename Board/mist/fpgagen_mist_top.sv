@@ -23,9 +23,6 @@ module fpgagen_mist_top(
 	inout         HDMI_SDA,
 	inout         HDMI_SCL,
 	input         HDMI_INT,
-	output        HDMI_BCK,
-	output        HDMI_LRCK,
-	output        HDMI_SDATA,
 `endif
 
 	input         SPI_SCK,
@@ -76,6 +73,12 @@ module fpgagen_mist_top(
 	output        I2S_BCK,
 	output        I2S_LRCK,
 	output        I2S_DATA,
+`endif
+`ifdef I2S_AUDIO_HDMI
+	output        HDMI_MCLK,
+	output        HDMI_BCK,
+	output        HDMI_LRCK,
+	output        HDMI_SDATA,
 `endif
 `ifdef SPDIF_AUDIO
 	output        SPDIF,
@@ -133,8 +136,8 @@ localparam bit USE_AUDIO_IN = 0;
 `ifdef DUAL_SDRAM
 assign SDRAM2_A = 13'hZZZZ;
 assign SDRAM2_BA = 0;
-assign SDRAM2_DQML = 0;
-assign SDRAM2_DQMH = 0;
+assign SDRAM2_DQML = 1;
+assign SDRAM2_DQMH = 1;
 assign SDRAM2_CKE = 0;
 assign SDRAM2_CLK = 0;
 assign SDRAM2_nCS = 1;
@@ -150,6 +153,15 @@ assign SDRAM2_nWE = 1;
 localparam bit INTERNAL_VRAM = 1;
 `else
 localparam bit INTERNAL_VRAM = 0;
+`endif
+
+`ifdef I2S_AUDIO
+`ifdef I2S_AUDIO_HDMI
+assign HDMI_MCLK = 0;
+assign HDMI_BCK = I2S_BCK;
+assign HDMI_LRCK = I2S_LRCK;
+assign HDMI_SDATA = I2S_DATA;
+`endif
 `endif
 
 MIST_Toplevel
