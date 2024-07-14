@@ -1201,8 +1201,8 @@ begin
 end process;
 
 -- I/O AREA
-FX68_IO_SEL <= '1' when FX68_A(23 downto 5) = x"A100" & "000" and FX68_SEL = '1' else '0';
-T80_IO_SEL <= '1' when T80_A(15) = '1' and BAR & T80_A(14 downto 5) = x"A100" & "000" and
+FX68_IO_SEL <= '1' when FX68_A(23 downto 8) = x"A100" and FX68_SEL = '1' else '0';
+T80_IO_SEL <= '1' when T80_A(15) = '1' and BAR & T80_A(14 downto 8) = x"A100" and
 	T80_MREQ_N = '0' and (T80_RD_N = '0' or T80_WR_N = '0') else '0';
 
 process( MRST_N, MCLK )
