@@ -301,9 +301,7 @@ signal RAM_RFRSH_DELAY_CNT : std_logic_vector(1 downto 0);
 -- FLASH CONTROL
 signal FX68_FLASH_SEL         : std_logic;
 signal FX68_FLASH_D           : std_logic_vector(15 downto 0);
-signal FX68_FLASH_D_REG       : std_logic_vector(15 downto 0);
 signal FX68_FLASH_DTACK_N     : std_logic;
-signal FX68_FLASH_DTACK_N_REG : std_logic;
 signal FX68_FLASH_ACK         : std_logic;
 signal FX68_FLASH_ACCEPT      : std_logic;
 
@@ -313,9 +311,7 @@ signal T80_FLASH_DTACK_N	: std_logic;
 
 signal DMA_FLASH_SEL		: std_logic;
 signal DMA_FLASH_D			: std_logic_vector(15 downto 0);
-signal DMA_FLASH_D_REG		: std_logic_vector(15 downto 0);
 signal DMA_FLASH_DTACK_N	: std_logic;
-signal DMA_FLASH_DTACK_N_REG: std_logic;
 
 -- SDRAM CONTROL
 signal BOOT_SDRAM_SEL       : std_logic;
@@ -324,9 +320,7 @@ signal BOOT_SDRAM_A         : std_logic_vector(15 downto 1);
 
 signal FX68_SDRAM_SEL		: std_logic;
 signal FX68_SDRAM_D			: std_logic_vector(15 downto 0);
-signal FX68_SDRAM_D_REG		: std_logic_vector(15 downto 0);
 signal FX68_SDRAM_DTACK_N	: std_logic;
-signal FX68_SDRAM_DTACK_N_REG: std_logic;
 signal FX68_SDRAM_ACK   : std_logic;
 signal FX68_SDRAM_ACCEPT: std_logic;
 
@@ -336,9 +330,7 @@ signal T80_SDRAM_DTACK_N	: std_logic;
 
 signal DMA_SDRAM_SEL		: std_logic;
 signal DMA_SDRAM_D			: std_logic_vector(15 downto 0);
-signal DMA_SDRAM_D_REG		: std_logic_vector(15 downto 0);
 signal DMA_SDRAM_DTACK_N	: std_logic;
-signal DMA_SDRAM_DTACK_N_REG: std_logic;
 
 -- SRAM CONTROL
 signal FX68_SRAM_SEL		: std_logic;
@@ -1575,12 +1567,7 @@ T80_FLASH_SEL <= '1' when T80_A(15) = '1' and T80_MREQ_N = '0' and T80_RD_N = '0
 	else '0';
 DMA_FLASH_SEL <= '1' when (VBUS_ADDR(23) = '0' or VBUS_ADDR(23 downto 21) = "100") and VBUS_SEL = '1' and DMA_SVP_RAM_SEL = '0' else '0';
 
-DMA_FLASH_DTACK_N  <= '0' when FC = FC_DMA_RD and romrd_req = romrd_ack else DMA_FLASH_DTACK_N_REG;
-DMA_FLASH_D <= romrd_q when FC = FC_DMA_RD and romrd_req = romrd_ack else DMA_FLASH_D_REG;
-
 FX68_FLASH_ACCEPT <= '1' when (FX68_PHI1 = '1' or FX68_FLASH_ACK = '1') and romrd_req = romrd_ack and CART_RFRSH_DELAY = '0' else '0';
-FX68_FLASH_DTACK_N <= '0' when FC = FC_FX68_RD and FX68_FLASH_ACCEPT = '1' else FX68_FLASH_DTACK_N_REG;
-FX68_FLASH_D <= romrd_q when FC = FC_FX68_RD and FX68_FLASH_ACCEPT = '1' else FX68_FLASH_D_REG;
 
 process( MRST_N, MCLK )
 variable dma_a : std_logic_vector(23 downto 1);
@@ -1588,22 +1575,22 @@ begin
 	if MRST_N = '0' then
 		FC <= FC_IDLE;
 
-		FX68_FLASH_DTACK_N_REG <= '1';
+		FX68_FLASH_DTACK_N <= '1';
 		T80_FLASH_DTACK_N <= '1';
-		DMA_FLASH_DTACK_N_REG <= '1';
+		DMA_FLASH_DTACK_N <= '1';
 		FX68_FLASH_ACK <= '0';
 
 		romrd_req <= '0';
 
 	elsif rising_edge( MCLK ) then
 		if FX68_FLASH_SEL = '0' then 
-			FX68_FLASH_DTACK_N_REG <= '1';
+			FX68_FLASH_DTACK_N <= '1';
 		end if;
 		if T80_FLASH_SEL = '0' then 
 			T80_FLASH_DTACK_N <= '1';
 		end if;
 		if DMA_FLASH_SEL = '0' then 
-			DMA_FLASH_DTACK_N_REG <= '1';
+			DMA_FLASH_DTACK_N <= '1';
 		end if;
 
 		case FC is
@@ -1614,7 +1601,7 @@ begin
 					romrd_a <= ROM_PAGE_A & FX68_A(18 downto 1);
 					FX68_FLASH_ACK <= '1';
 					FC <= FC_FX68_RD;
-				elsif DMA_FLASH_SEL = '1' and DMA_FLASH_DTACK_N_REG = '1' then
+				elsif DMA_FLASH_SEL = '1' and DMA_FLASH_DTACK_N = '1' then
 					if SVP_ENABLE = '1' then
 						dma_a := VBUS_ADDR - 1;
 					else
@@ -1635,8 +1622,8 @@ begin
 				FX68_FLASH_ACK <= '1';
 			end if;
 			if FX68_FLASH_ACCEPT = '1' then
-				FX68_FLASH_D_REG <= romrd_q;
-				FX68_FLASH_DTACK_N_REG <= '0';
+				FX68_FLASH_D <= romrd_q;
+				FX68_FLASH_DTACK_N <= '0';
 				FX68_FLASH_ACK <= '0';
 				FC <= FC_IDLE;
 			end if;
@@ -1659,8 +1646,8 @@ begin
 
 		when FC_DMA_RD =>
 			if romrd_req = romrd_ack then
-				DMA_FLASH_D_REG <= romrd_q;
-				DMA_FLASH_DTACK_N_REG <= '0';
+				DMA_FLASH_D <= romrd_q;
+				DMA_FLASH_DTACK_N <= '0';
 				FC <= FC_IDLE;
 			end if;
 
@@ -1677,19 +1664,14 @@ T80_SDRAM_SEL <= '1' when T80_A(15) = '1' and BAR(23 downto 21) = "111" and
 	T80_MREQ_N = '0' and T80_RFSH_N = '1' else '0';
 DMA_SDRAM_SEL <= '1' when VBUS_ADDR(23 downto 21) = "111" and VBUS_SEL = '1' else '0';
 
-DMA_SDRAM_DTACK_N  <= '0' when SDRC = SDRC_DMA and ram68k_req = ram68k_ack else DMA_SDRAM_DTACK_N_REG;
-DMA_SDRAM_D <= ram68k_q when SDRC = SDRC_DMA and ram68k_req = ram68k_ack else DMA_SDRAM_D_REG;
-
 FX68_SDRAM_ACCEPT <= '1' when (FX68_PHI1 = '1' or FX68_SDRAM_ACK = '1' or FX68_RNW = '0') and ram68k_req = ram68k_ack and RAM_RFRSH_DELAY = '0' else '0';
-FX68_SDRAM_DTACK_N  <= '0' when SDRC = SDRC_FX68 and FX68_SDRAM_ACCEPT = '1' else FX68_SDRAM_DTACK_N_REG;
-FX68_SDRAM_D <= ram68k_q when SDRC = SDRC_FX68 and FX68_SDRAM_ACCEPT = '1' else FX68_SDRAM_D_REG;
 
 process( ext_reset_n, MCLK )
 begin
 	if ext_reset_n = '0' then
-		FX68_SDRAM_DTACK_N_REG <= '1';
+		FX68_SDRAM_DTACK_N <= '1';
 		T80_SDRAM_DTACK_N <= '1';
-		DMA_SDRAM_DTACK_N_REG <= '1';
+		DMA_SDRAM_DTACK_N <= '1';
 		FX68_SDRAM_ACK <= '0';
 		BOOT_SDRAM_DTACK_N <= '1';
 
@@ -1702,13 +1684,13 @@ begin
 			BOOT_SDRAM_DTACK_N <= '1';
 		end if;
 		if FX68_SDRAM_SEL = '0' then 
-			FX68_SDRAM_DTACK_N_REG <= '1';
+			FX68_SDRAM_DTACK_N <= '1';
 		end if;	
 		if T80_SDRAM_SEL = '0' then 
 			T80_SDRAM_DTACK_N <= '1';
 		end if;	
 		if DMA_SDRAM_SEL = '0' then 
-			DMA_SDRAM_DTACK_N_REG <= '1';
+			DMA_SDRAM_DTACK_N <= '1';
 		end if;	
 
 		case SDRC is
@@ -1739,7 +1721,7 @@ begin
 					ram68k_u_n <= T80_A(0);
 					ram68k_l_n <= not T80_A(0);
 					SDRC <= SDRC_T80;
-				elsif DMA_SDRAM_SEL = '1' and DMA_SDRAM_DTACK_N_REG = '1' then
+				elsif DMA_SDRAM_SEL = '1' and DMA_SDRAM_DTACK_N = '1' then
 					ram68k_req <= not ram68k_req;
 					ram68k_a <= VBUS_ADDR(15 downto 1);
 					ram68k_we <= '0';
@@ -1760,8 +1742,8 @@ begin
 				FX68_SDRAM_ACK <= '1';
 			end if;
 			if FX68_SDRAM_ACCEPT = '1' then
-				FX68_SDRAM_D_REG <= ram68k_q;
-				FX68_SDRAM_DTACK_N_REG <= '0';
+				FX68_SDRAM_D <= ram68k_q;
+				FX68_SDRAM_DTACK_N <= '0';
 				FX68_SDRAM_ACK <= '0';
 				SDRC <= SDRC_IDLE;
 			end if;
@@ -1781,8 +1763,8 @@ begin
 
 		when SDRC_DMA =>
 			if ram68k_req = ram68k_ack then
-				DMA_SDRAM_D_REG <= ram68k_q;
-				DMA_SDRAM_DTACK_N_REG <= '0';
+				DMA_SDRAM_D <= ram68k_q;
+				DMA_SDRAM_DTACK_N <= '0';
 				SDRC <= SDRC_IDLE;
 			end if;
 		
@@ -1909,7 +1891,7 @@ end process;
 -- 300000-37FFFF - 128K mirrored x4
 -- 390000-39FFFF - cell arrange 1
 -- 3A0000-3AFFFF - cell arrange 2
-FX68_SVP_RAM_SEL <= '1' when SVP_ENABLE = '1' and (FX68_A(23 downto 19) = x"3"&'0' or FX68_A(23 downto 16) = x"39" or FX68_A(23 downto 16) = x"3A") and FX68_SEL = '1' else '0';
+FX68_SVP_RAM_SEL <= '1' when SVP_ENABLE = '1' and (FX68_A(23 downto 19) = x"3"&'0' or FX68_A(23 downto 16) = x"39" or FX68_A(23 downto 16) = x"3A") and FX68_AS_N = '0' else '0';
 DMA_SVP_RAM_SEL <= '1' when SVP_ENABLE = '1' and (VBUS_ADDR(23 downto 19) = x"3"&'0' or VBUS_ADDR(23 downto 16) = x"39" or VBUS_ADDR(23 downto 16) = x"3A") and VBUS_SEL = '1' else '0';
 
 process( MRST_N, MCLK )
@@ -1933,7 +1915,7 @@ begin
 
 		case SVPRC is
 		when SVPRC_IDLE =>
-			if FX68_SVP_RAM_SEL = '1' and FX68_SVP_RAM_DTACK_N = '1' then
+			if FX68_SVP_RAM_SEL = '1' and FX68_SVP_RAM_DTACK_N = '1' and FX68_SEL = '1' then
 				svp_ram2_req <= not svp_ram2_req;
 				if FX68_A(23 downto 16) = x"39" then
 					svp_ram2_a <= '0' & FX68_A(15 downto 13) & FX68_A(6 downto 2) & FX68_A(12 downto 7) & FX68_A(1);
