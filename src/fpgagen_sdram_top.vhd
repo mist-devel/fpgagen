@@ -206,6 +206,8 @@ signal svp_rom_ack  : std_logic;
 signal svp_rom_a    : std_logic_vector(20 downto 1);
 signal svp_rom_q    : std_logic_vector(15 downto 0);
 
+signal svp_en       : std_logic;
+
 begin
 
 -- -----------------------------------------------------------------------
@@ -330,6 +332,20 @@ port map(
 	svp_rom_q    => svp_rom_q
 );
 
+gen_cart : entity work.gen_cart
+port map (
+	reset_n => reset_n,
+	MCLK         => MCLK,     --  54MHz
+	DL_CLK       => DL_CLK,
+
+	ext_reset_n  => ext_reset_n,
+	ext_bootdone => ext_bootdone,
+	ext_data     => ext_data,
+	ext_data_ack => ext_data_ack,
+
+	svp_en => svp_en
+);
+
 -- Genesis Core
 -- -----------------------------------------------------------------------
 -- -----------------------------------------------------------------------
@@ -383,6 +399,7 @@ port map (
 
 	-- DIP switches
 	ext_sw       => ext_sw,
+	svp_en       => svp_en,
 
 	-- RAM/ROM interface
 	romwr_req    => romwr_req,

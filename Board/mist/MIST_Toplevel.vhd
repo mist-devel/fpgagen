@@ -209,7 +209,7 @@ signal bk_saveD : std_logic := '0';
 signal downloading      : std_logic;
 signal data_io_wr       : std_logic;
 signal data_io_clkref   : std_logic;
-signal data_io_d        : std_logic_vector(7 downto 0);
+signal data_io_d        : std_logic_vector(15 downto 0);
 signal downloadingD     : std_logic;
 signal downloadingD_MCLK: std_logic;
 signal d_state          : std_logic_vector(1 downto 0);
@@ -222,13 +222,6 @@ signal ext_data_req     : std_logic;
 signal ext_data_ack     : std_logic := '0';
 signal ext_sw           : std_logic_vector( 15 downto 0); --DIP switches
 signal core_led         : std_logic;
-
-constant SVP_EN         : std_logic := '0';
-
-function core_name return string is
-begin
-	if SVP_EN = '1' then return "GEN_SVP"; else return "GENESIS"; end if;
-end function;
 
 function bool_to_sl(X:boolean) return std_logic is
 begin
@@ -246,8 +239,8 @@ constant CONF_DBG_STR : string := "";
 --    "O4,FM Sound,Enable,Disable;"&
 --    "O5,PSG Sound,Enable,Disable;";
 
-constant CONF_STR : string := core_name &
-    ";BINGENMD ;"&
+constant CONF_STR : string :=
+    "GENESIS;BINGENMD ;"&
     "S,SAV,Mount;"&
     "TE,Write Save RAM;"&
     SEP&
@@ -313,13 +306,14 @@ END COMPONENT;
 
 component data_io
     generic ( ROM_DIRECT_UPLOAD : boolean := false;
-              USE_QSPI : boolean := false
+              USE_QSPI : boolean := false;
+              DOUT_16 : boolean := true
         );
     port (  clk_sys        : in std_logic;
             clkref_n       : in std_logic;
             ioctl_wr       : out std_logic;
             ioctl_addr     : out std_logic_vector(24 downto 0);
-            ioctl_dout     : out std_logic_vector(7 downto 0);
+            ioctl_dout     : out std_logic_vector(15 downto 0);
             ioctl_download : out std_logic;
             ioctl_index    : out std_logic_vector(7 downto 0);
 
@@ -391,7 +385,6 @@ begin
 	end if;
 end process;
 
-ext_sw(1) <= SVP_EN; -- SVP
 ext_sw(3) <= status(5); --psg en
 ext_sw(4) <= status(4); --fm en
 ext_sw(5) <= status(7); --Export
@@ -906,13 +899,7 @@ begin
             case d_state is
             when "00" =>
                 if data_io_wr = '1' then
-                    ext_data(15 downto 8) <= data_io_d;
-                    data_io_clkref <= '1';
-                    d_state <= "01";
-                end if;
-            when "01" =>
-                if data_io_wr = '1' then
-                    ext_data(7 downto 0) <= data_io_d;
+                    ext_data <= data_io_d(7 downto 0) & data_io_d(15 downto 8);
                     data_io_clkref <= '0';
                     d_state <= "10";
                 end if;
@@ -924,6 +911,7 @@ begin
             when "11" =>
                 data_io_clkref <= '1';
                 d_state <= "00";
+            when others => null;
             end case;
         end if;
     end if;

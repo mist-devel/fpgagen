@@ -104,6 +104,8 @@ port(
 	                                                   -- 15 - Border
 	                                                   -- 0 - CRAM dots
 
+	svp_en         : in std_logic;
+
 	-- RAM/ROM control
 	romwr_req : buffer std_logic;
 	romwr_ack : in std_logic;
@@ -223,7 +225,6 @@ type svprc_t is ( SVPRC_IDLE, SVPRC_FX68, SVPRC_DMA);
 signal SVPRC : svprc_t;
 
 signal SVP_CLKEN    : std_logic;
-signal SVP_ENABLE   : std_logic;
 
 signal SVP_DI       : std_logic_vector(15 downto 0);
 signal SVP_DO       : std_logic_vector(15 downto 0);
@@ -828,9 +829,8 @@ port map(
 	snd_right   => DAC_RDATA
 );
 
-SVP_ENABLE <= SW(1);
 -- SVP at A15000-A1500F
-FX68_SVP_SEL <= '1' when SVP_ENABLE = '1' and FX68_SEL = '1' and FX68_A(23 downto 4) = x"A1500" else '0';
+FX68_SVP_SEL <= '1' when svp_en = '1' and FX68_SEL = '1' and FX68_A(23 downto 4) = x"A1500" else '0';
 T80_SVP_SEL <= '1' when BAR(23 downto 15) = x"A1"&'0' and T80_A(15 downto 4) = x"500" and T80_MREQ_N = '0' and (T80_RD_N = '0' or T80_WR_N = '0') else '0';
 SVP_SEL <= T80_SVP_SEL or FX68_SVP_SEL;
 SVP_RNW <= T80_WR_N when T80_SVP_SEL = '1' else FX68_RNW when FX68_SVP_SEL = '1' else '1';
@@ -842,7 +842,7 @@ port map (
 	CLK         => MCLK,
 	CE          => SVP_CLKEN,
 	RST_N       => MRST_N,
-	ENABLE      => SVP_ENABLE,
+	ENABLE      => svp_en,
 
 	BUS_A       => SVP_A,
 	BUS_DO      => SVP_DO,
@@ -1602,7 +1602,7 @@ begin
 					FX68_FLASH_ACK <= '1';
 					FC <= FC_FX68_RD;
 				elsif DMA_FLASH_SEL = '1' and DMA_FLASH_DTACK_N = '1' then
-					if SVP_ENABLE = '1' then
+					if svp_en = '1' then
 						dma_a := VBUS_ADDR - 1;
 					else
 						dma_a := VBUS_ADDR;
@@ -1777,7 +1777,7 @@ end process;
 
 -- SRAM at 0x200000 - 20FFFF
 -- EEPROM at 0x200000
-SRAM_EN <= (SRAM_EN_AUTO or SRAM_EN_PAGEIN) and not SVP_ENABLE;
+SRAM_EN <= (SRAM_EN_AUTO or SRAM_EN_PAGEIN) and not svp_en;
 
 FX68_SRAM_SEL <= '1' when SRAM_EN = '1' and FX68_AS_N = '0' and FX68_A(23 downto 16) = x"20" and FX68_EEPROM_SEL = '0' else '0';
 FX68_EEPROM_SEL <= '1' when EEPROM_EN = '1' and FX68_SEL = '1' and FX68_A(23 downto 4) = x"20000" and FX68_A(3 downto 1) = "000" else '0';
@@ -1891,8 +1891,8 @@ end process;
 -- 300000-37FFFF - 128K mirrored x4
 -- 390000-39FFFF - cell arrange 1
 -- 3A0000-3AFFFF - cell arrange 2
-FX68_SVP_RAM_SEL <= '1' when SVP_ENABLE = '1' and (FX68_A(23 downto 19) = x"3"&'0' or FX68_A(23 downto 16) = x"39" or FX68_A(23 downto 16) = x"3A") and FX68_AS_N = '0' else '0';
-DMA_SVP_RAM_SEL <= '1' when SVP_ENABLE = '1' and (VBUS_ADDR(23 downto 19) = x"3"&'0' or VBUS_ADDR(23 downto 16) = x"39" or VBUS_ADDR(23 downto 16) = x"3A") and VBUS_SEL = '1' else '0';
+FX68_SVP_RAM_SEL <= '1' when svp_en = '1' and (FX68_A(23 downto 19) = x"3"&'0' or FX68_A(23 downto 16) = x"39" or FX68_A(23 downto 16) = x"3A") and FX68_AS_N = '0' else '0';
+DMA_SVP_RAM_SEL <= '1' when svp_en = '1' and (VBUS_ADDR(23 downto 19) = x"3"&'0' or VBUS_ADDR(23 downto 16) = x"39" or VBUS_ADDR(23 downto 16) = x"3A") and VBUS_SEL = '1' else '0';
 
 process( MRST_N, MCLK )
 variable svp_dma_a: std_logic_vector(23 downto 1);

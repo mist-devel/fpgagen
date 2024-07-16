@@ -694,22 +694,31 @@ begin
 	RAMA_ADDR <= IR(7 downto 0) when INST.AS = IA_RAM or INST.AD = IA_RAM else RAMA_PTR;
 	RAMA_D <= std_logic_vector(unsigned(RAMA_Q) + 1) when INST.AS = IA_INDPTR else SRC_DATA;
 	RAMA_WE <= INST.RAM(0) and LAST_CYCLE and EN when INST.AD = IA_RAM or INST.AD = IA_PTR or INST.AS = IA_INDPTR else '0';
-	
+
+	RAMA : entity work.dpram_dclk generic map(8, 16)
+	port map(
+		rdclock     => not CLK,
+		wrclock     => CLK,
+		rdaddress   => RAMA_ADDR,
+		wraddress   => RAMA_ADDR,
+		data        => RAMA_D,
+		q           => RAMA_Q,
+		wren        => RAMA_WE
+	);
+
 	RAMB_ADDR <= IR(7 downto 0) when INST.AS = IA_RAM or INST.AD = IA_RAM else RAMB_PTR;
 	RAMB_D <= std_logic_vector(unsigned(RAMB_Q) + 1) when INST.AS = IA_INDPTR else SRC_DATA;
 	RAMB_WE <= INST.RAM(1) and LAST_CYCLE and EN when INST.AD = IA_RAM or INST.AD = IA_PTR or INST.AS = IA_INDPTR else '0';
 
-	RAMAB : entity work.DualPortRAM generic map(9, 16)
+	RAMB : entity work.dpram_dclk generic map(8, 16)
 	port map(
-		clock     => not CLK,
-		address_a => '0' & RAMA_ADDR,
-		address_b => '1' & RAMB_ADDR,
-		data_a    => RAMA_D,
-		data_b    => RAMB_D,
-		q_a       => RAMA_Q,
-		q_b       => RAMB_Q,
-		wren_A    => RAMA_WE,
-		wren_B    => RAMB_WE
+		rdclock     => not CLK,
+		wrclock     => CLK,
+		rdaddress   => RAMB_ADDR,
+		wraddress   => RAMB_ADDR,
+		data        => RAMB_D,
+		q           => RAMB_Q,
+		wren        => RAMB_WE
 	);
 	
 	PA <= IND_ADDR when IND_EXT_CYCLE = '1' else PC;

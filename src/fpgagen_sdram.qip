@@ -1,6 +1,7 @@
 set_global_assignment -name VHDL_FILE [file join $::quartus(qip_path) fpgagen_sdram_top.vhd]
 set_global_assignment -name VHDL_FILE [file join $::quartus(qip_path) fpgagen_top.vhd]
 set_global_assignment -name VHDL_FILE [file join $::quartus(qip_path) os_rom.vhd]
+set_global_assignment -name VHDL_FILE [file join $::quartus(qip_path) gen_cart.vhd]
 set_global_assignment -name VHDL_FILE [file join $::quartus(qip_path) gen_io.vhd]
 set_global_assignment -name VHDL_FILE [file join $::quartus(qip_path) gen_ctrl.vhd]
 set_global_assignment -name VHDL_FILE [file join $::quartus(qip_path) gen_lightgun.vhd]

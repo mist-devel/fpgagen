@@ -300,7 +300,7 @@ set_global_assignment -name SEED 1
 set_global_assignment -name CYCLONEIII_CONFIGURATION_SCHEME "PASSIVE SERIAL"
 set_global_assignment -name FORCE_CONFIGURATION_VCCIO ON
 set_global_assignment -name PROJECT_OUTPUT_DIRECTORY ../../syn/mist
-set_global_assignment -name PHYSICAL_SYNTHESIS_EFFORT NORMAL
+set_global_assignment -name PHYSICAL_SYNTHESIS_EFFORT EXTRA
 set_global_assignment -name TIMEQUEST_DO_REPORT_TIMING OFF
 set_global_assignment -name TIMEQUEST_DO_CCPP_REMOVAL ON
 set_global_assignment -name VERILOG_MACRO "FX68K_ALTERA_REGS=<None>"
