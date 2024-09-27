@@ -1,0 +1,1 @@
+Set SVP_EN to '1' in ./Board/mist/MIST_Toplevel.vhd at line 194 to enable SVP synthesis (Virtua Racing core).
