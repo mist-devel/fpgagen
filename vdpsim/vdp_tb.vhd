@@ -21,6 +21,7 @@ component vdp
        port(
                 RST_N           : in std_logic;
                 CLK                     : in std_logic;
+                PHI1            : in std_logic;
 
                 SEL                     : in std_logic;
                 A                       : in std_logic_vector(4 downto 0);
@@ -43,7 +44,9 @@ component vdp
                 vram32_a : out std_logic_vector(15 downto 1);
                 vram32_q : in std_logic_vector(31 downto 0);
 
+                HL              : in std_logic;
                 HINT            : out std_logic;
+                EXINT           : out std_logic;
                 INTACK          : in std_logic;
                 VINT_TG68       : out std_logic;
                 VINT_T80        : out std_logic;
@@ -62,6 +65,7 @@ component vdp
                 VBUS_DTACK_N    : in std_logic;
 
                 PAL             : in std_logic := '0';
+                IN_BORDER       : out std_logic;
 
                 CE_PIX          : buffer std_logic;
                 FIELD_OUT       : out std_logic;
@@ -147,9 +151,11 @@ begin
       AS_N => '1',
 
       VBUS_DATA => "0000000000000000",
+      PHI1 => '1',
 
       VBUS_DTACK_N => '0',
 
+      HL => '0',
       PAL => '0',
       R => VIDEO_R,
       G => VIDEO_G,
